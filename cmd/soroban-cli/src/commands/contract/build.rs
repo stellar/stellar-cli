@@ -422,7 +422,7 @@ impl Cmd {
                     let markers = soroban_spec::shaking::find_all(&wasm_bytes);
                     let mut entries = filter_and_dedup_spec(spec.spec, &markers, model)?;
                     if model == soroban_spec::shaking::Model::References {
-                        entries = Self::reduce_spec(&print, &p.name, &entries)?;
+                        entries = Self::reduce_spec(&print, &p.name, &self.profile, &entries)?;
                     }
                     Self::write_spec(&target_file_path, &wasm_bytes, entries)?;
                 }
@@ -572,12 +572,23 @@ impl Cmd {
     fn reduce_spec(
         print: &Print,
         name: &str,
+        profile: &str,
         entries: &[stellar_xdr::ScSpecEntry],
     ) -> Result<Vec<stellar_xdr::ScSpecEntry>, Error> {
         // The error names entries of the spec, so sanitize it before it is
         // printed, as the spec is untrusted input.
-        let reduced = soroban_spec::reduce::reduce(entries)
-            .map_err(|e| Error::ReduceSpec(sanitize(&e.to_string())))?;
+        let reduced = soroban_spec::reduce::reduce(entries).map_err(|e| {
+            let mut msg = sanitize(&e.to_string());
+            // An entry the spec refers to but does not define is commonly
+            // caused by building without link-time optimization.
+            if matches!(e, soroban_spec::reduce::Error::UndefinedName(_)) {
+                msg = format!(
+                    "{msg}. Check that [profile.{profile}] in the Cargo.toml does not have \
+                    `lto` disabled, it should be set to \"thin\" or \"fat\"."
+                );
+            }
+            Error::ReduceSpec(msg)
+        })?;
 
         let collisions: Vec<_> = reduced.renames().filter(|r| r.collision()).collect();
         if !collisions.is_empty() {
@@ -1032,13 +1043,44 @@ mod tests {
             fields: VecM::default(),
         });
 
-        let entries = Cmd::reduce_spec(&Print::new(true), "pkg", &[entry]).unwrap();
+        let entries = Cmd::reduce_spec(&Print::new(true), "pkg", "release", &[entry]).unwrap();
 
         assert_eq!(entries.len(), 1);
         let ScSpecEntry::UdtStructV0(s) = &entries[0] else {
             panic!("expected a struct entry, got {:?}", entries[0]);
         };
         assert_eq!(s.name.to_vec(), b"MyType".to_vec());
+    }
+
+    #[test]
+    fn reduce_spec_undefined_name_suggests_lto() {
+        use stellar_xdr::{
+            ScSpecEntry, ScSpecTypeDef, ScSpecTypeUdt, ScSpecUdtStructFieldV0, ScSpecUdtStructV0,
+        };
+
+        // A struct with a field referring to a qualified type the spec does
+        // not define.
+        let entry = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: "mycrate::MyType".to_string().try_into().unwrap(),
+            fields: vec![ScSpecUdtStructFieldV0 {
+                doc: StringM::default(),
+                name: "f".to_string().try_into().unwrap(),
+                type_: ScSpecTypeDef::Udt(ScSpecTypeUdt {
+                    name: "mycrate::Missing".to_string().try_into().unwrap(),
+                }),
+            }]
+            .try_into()
+            .unwrap(),
+        });
+
+        let err = Cmd::reduce_spec(&Print::new(true), "pkg", "release", &[entry]).unwrap_err();
+
+        let msg = err.to_string();
+        assert!(msg.contains("mycrate::Missing"), "{msg}");
+        assert!(msg.contains("[profile.release]"), "{msg}");
+        assert!(msg.contains("lto"), "{msg}");
     }
 
     #[test]
