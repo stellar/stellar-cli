@@ -104,8 +104,9 @@ pub fn build_host_function_parameters(
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
+    print: &Print,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true)
+    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, true, print)
 }
 
 /// Build invocation parameters by mapping `ordered_values` to the contract
@@ -123,6 +124,7 @@ pub fn build_host_function_parameters_by_position(
     ordered_values: &[String],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
+    print: &Print,
 ) -> Result<HostFunctionParameters, Error> {
     let spec = Spec(Some(spec_entries.to_vec()));
     let func = get_function_spec(&spec, function_name)?;
@@ -142,7 +144,15 @@ pub fn build_host_function_parameters_by_position(
     let mut parsed_args = Vec::with_capacity(func.inputs.len());
     let mut signers = Vec::<Signer>::new();
     for (input, value) in func.inputs.iter().zip(ordered_values.iter()) {
-        parse_positional_value(input, value, &spec, config, &mut signers, &mut parsed_args)?;
+        parse_positional_value(
+            input,
+            value,
+            &spec,
+            config,
+            &mut signers,
+            &mut parsed_args,
+            print,
+        )?;
     }
 
     let invoke_args = build_invoke_contract_args(contract_id, function_name, parsed_args)?;
@@ -154,8 +164,16 @@ pub fn build_constructor_parameters(
     slop: &[OsString],
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
+    print: &Print,
 ) -> Result<HostFunctionParameters, Error> {
-    build_host_function_parameters_with_filter(contract_id, slop, spec_entries, config, false)
+    build_host_function_parameters_with_filter(
+        contract_id,
+        slop,
+        spec_entries,
+        config,
+        false,
+        print,
+    )
 }
 
 fn build_host_function_parameters_with_filter(
@@ -164,12 +182,13 @@ fn build_host_function_parameters_with_filter(
     spec_entries: &[ScSpecEntry],
     config: &config::Args,
     filter_constructor: bool,
+    print: &Print,
 ) -> Result<HostFunctionParameters, Error> {
     let spec = Spec(Some(spec_entries.to_vec()));
     let cmd = build_clap_command(&spec, filter_constructor)?;
     let (function, matches_) = parse_command_matches(cmd, slop)?;
     let func = get_function_spec(&spec, &function)?;
-    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config)?;
+    let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config, print)?;
     let invoke_args = build_invoke_contract_args(contract_id, &function, parsed_args)?;
 
     Ok((function, spec, invoke_args, signers))
@@ -239,12 +258,21 @@ fn parse_function_arguments(
     matches_: &clap::ArgMatches,
     spec: &Spec,
     config: &config::Args,
+    print: &Print,
 ) -> Result<(Vec<ScVal>, Vec<Signer>), Error> {
     let mut parsed_args = Vec::with_capacity(func.inputs.len());
     let mut signers = Vec::<Signer>::new();
 
     for i in &func.inputs {
-        parse_single_argument(i, matches_, spec, config, &mut signers, &mut parsed_args)?;
+        parse_single_argument(
+            i,
+            matches_,
+            spec,
+            config,
+            &mut signers,
+            &mut parsed_args,
+            print,
+        )?;
     }
 
     Ok((parsed_args, signers))
@@ -257,6 +285,7 @@ fn parse_single_argument(
     config: &config::Args,
     signers: &mut Vec<Signer>,
     parsed_args: &mut Vec<ScVal>,
+    print: &Print,
 ) -> Result<(), Error> {
     let name = sanitize(&input.name.to_utf8_string_lossy());
     let expected_type_name = get_type_name(&input.type_); //-0--
@@ -272,7 +301,7 @@ fn parse_single_argument(
             }
         };
 
-        parse_positional_value(input, &s, spec, config, signers, parsed_args)
+        parse_positional_value(input, &s, spec, config, signers, parsed_args, print)
     } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
         parsed_args.push(ScVal::Void);
         Ok(())
@@ -284,6 +313,7 @@ fn parse_single_argument(
             expected_type_name,
             spec,
             config,
+            print,
         )?);
         Ok(())
     } else {
@@ -306,6 +336,7 @@ fn parse_positional_value(
     config: &config::Args,
     signers: &mut Vec<Signer>,
     parsed_args: &mut Vec<ScVal>,
+    print: &Print,
 ) -> Result<(), Error> {
     let name = sanitize(&input.name.to_utf8_string_lossy());
 
@@ -329,6 +360,7 @@ fn parse_positional_value(
         &input.type_,
         spec,
         config,
+        print,
     )?);
     Ok(())
 }
@@ -340,6 +372,7 @@ fn parse_file_argument(
     expected_type_name: String,
     spec: &Spec,
     config: &config::Args,
+    print: &Print,
 ) -> Result<ScVal, Error> {
     if matches!(type_def, ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)) {
         let bytes = std::fs::read(arg_path).map_err(|e| Error::MissingFileArg {
@@ -365,7 +398,7 @@ fn parse_file_argument(
             type_def,
             file_contents.len()
         );
-        parse_argument_with_validation(name, &file_contents, type_def, spec, config)
+        parse_argument_with_validation(name, &file_contents, type_def, spec, config, print)
     }
 }
 
@@ -503,7 +536,11 @@ pub fn output_to_string(
     Ok(TxnResult::Res(res_str))
 }
 
-fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String, Error> {
+fn resolve_address(
+    addr_or_alias: &str,
+    config: &config::Args,
+    print: &Print,
+) -> Result<String, Error> {
     let sc_address: UnresolvedScAddress = addr_or_alias.parse().unwrap();
     let account = match sc_address {
         UnresolvedScAddress::Resolved(addr) => addr.to_string(),
@@ -512,6 +549,7 @@ fn resolve_address(addr_or_alias: &str, config: &config::Args) -> Result<String,
                 &config.locator,
                 &config.get_network()?.network_passphrase,
                 config.hd_path(),
+                print,
             )?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
@@ -686,6 +724,7 @@ fn parse_argument_with_validation(
     expected_type: &ScSpecTypeDef,
     spec: &Spec,
     config: &config::Args,
+    print: &Print,
 ) -> Result<ScVal, Error> {
     let expected_type_name = get_type_name(expected_type);
 
@@ -704,7 +743,7 @@ fn parse_argument_with_validation(
 
     // Walk the input through resolve_aliases_in_json so identity aliases are
     // resolved at every Address/MuxedAddress position, top-level or nested.
-    let resolved = resolve_aliases(value, expected_type, spec, config)?;
+    let resolved = resolve_aliases(value, expected_type, spec, config, print)?;
 
     spec.from_string(&resolved, expected_type)
         .map_err(|error| Error::CannotParseArg {
@@ -725,6 +764,7 @@ fn resolve_aliases(
     type_def: &ScSpecTypeDef,
     spec: &Spec,
     config: &config::Args,
+    print: &Print,
 ) -> Result<String, Error> {
     let is_address = matches!(
         type_def,
@@ -737,7 +777,7 @@ fn resolve_aliases(
         Err(_) => return Ok(value.to_string()),
     };
 
-    let mutated = resolve_aliases_in_json(&mut json, type_def, spec, config)?;
+    let mutated = resolve_aliases_in_json(&mut json, type_def, spec, config, print)?;
 
     // Nothing was rewritten — return the original input verbatim so we don't
     // disturb whitespace, key ordering, or number formatting just to reparse it.
@@ -767,12 +807,13 @@ fn resolve_aliases_in_json(
     type_def: &ScSpecTypeDef,
     spec: &Spec,
     config: &config::Args,
+    print: &Print,
 ) -> Result<bool, Error> {
     let mut mutated = false;
     match type_def {
         ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress => {
             if let serde_json::Value::String(s) = value {
-                let resolved = resolve_address(s, config)?;
+                let resolved = resolve_address(s, config, print)?;
                 if &resolved != s {
                     *s = resolved;
                     mutated = true;
@@ -782,14 +823,15 @@ fn resolve_aliases_in_json(
         ScSpecTypeDef::Vec(inner) => {
             if let serde_json::Value::Array(arr) = value {
                 for item in arr.iter_mut() {
-                    mutated |= resolve_aliases_in_json(item, &inner.element_type, spec, config)?;
+                    mutated |=
+                        resolve_aliases_in_json(item, &inner.element_type, spec, config, print)?;
                 }
             }
         }
         ScSpecTypeDef::Tuple(tuple) => {
             if let serde_json::Value::Array(arr) = value {
                 for (item, ty) in arr.iter_mut().zip(tuple.value_types.iter()) {
-                    mutated |= resolve_aliases_in_json(item, ty, spec, config)?;
+                    mutated |= resolve_aliases_in_json(item, ty, spec, config, print)?;
                 }
             }
         }
@@ -802,8 +844,9 @@ fn resolve_aliases_in_json(
                 if key_is_address {
                     let entries = std::mem::take(obj);
                     for (k, mut v) in entries {
-                        mutated |= resolve_aliases_in_json(&mut v, &map.value_type, spec, config)?;
-                        let resolved = resolve_address(&k, config)?;
+                        mutated |=
+                            resolve_aliases_in_json(&mut v, &map.value_type, spec, config, print)?;
+                        let resolved = resolve_address(&k, config, print)?;
                         if resolved != k {
                             mutated = true;
                         }
@@ -814,13 +857,14 @@ fn resolve_aliases_in_json(
                     }
                 } else {
                     for v in obj.values_mut() {
-                        mutated |= resolve_aliases_in_json(v, &map.value_type, spec, config)?;
+                        mutated |=
+                            resolve_aliases_in_json(v, &map.value_type, spec, config, print)?;
                     }
                 }
             }
         }
         ScSpecTypeDef::Option(inner) if !matches!(value, serde_json::Value::Null) => {
-            mutated |= resolve_aliases_in_json(value, &inner.value_type, spec, config)?;
+            mutated |= resolve_aliases_in_json(value, &inner.value_type, spec, config, print)?;
         }
         ScSpecTypeDef::Result(result) => {
             // Result is rarely used as an input type. The walker descends into
@@ -828,11 +872,11 @@ fn resolve_aliases_in_json(
             // shape doesn't fit the branch's type. Resolution is idempotent
             // (a strkey re-resolves to itself), so descending twice is safe
             // when both branches happen to share a shape.
-            mutated |= resolve_aliases_in_json(value, &result.ok_type, spec, config)?;
-            mutated |= resolve_aliases_in_json(value, &result.error_type, spec, config)?;
+            mutated |= resolve_aliases_in_json(value, &result.ok_type, spec, config, print)?;
+            mutated |= resolve_aliases_in_json(value, &result.error_type, spec, config, print)?;
         }
         ScSpecTypeDef::Udt(udt) => {
-            mutated |= resolve_aliases_in_udt(value, udt, spec, config)?;
+            mutated |= resolve_aliases_in_udt(value, udt, spec, config, print)?;
         }
         _ => {}
     }
@@ -844,6 +888,7 @@ fn resolve_aliases_in_udt(
     udt: &stellar_xdr::ScSpecTypeUdt,
     spec: &Spec,
     config: &config::Args,
+    print: &Print,
 ) -> Result<bool, Error> {
     let mut mutated = false;
     let name = udt.name.to_utf8_string_lossy();
@@ -862,15 +907,21 @@ fn resolve_aliases_in_udt(
             match value {
                 serde_json::Value::Array(arr) if is_tuple_struct => {
                     for (item, field) in arr.iter_mut().zip(strukt.fields.iter()) {
-                        mutated |= resolve_aliases_in_json(item, &field.type_, spec, config)?;
+                        mutated |=
+                            resolve_aliases_in_json(item, &field.type_, spec, config, print)?;
                     }
                 }
                 serde_json::Value::Object(obj) => {
                     for field in &strukt.fields {
                         let key = field.name.to_utf8_string_lossy();
                         if let Some(field_val) = obj.get_mut(key.as_str()) {
-                            mutated |=
-                                resolve_aliases_in_json(field_val, &field.type_, spec, config)?;
+                            mutated |= resolve_aliases_in_json(
+                                field_val,
+                                &field.type_,
+                                spec,
+                                config,
+                                print,
+                            )?;
                         }
                     }
                 }
@@ -878,7 +929,7 @@ fn resolve_aliases_in_udt(
             }
         }
         ScSpecEntry::UdtUnionV0(union) => {
-            mutated |= resolve_aliases_in_union(value, union, spec, config)?;
+            mutated |= resolve_aliases_in_union(value, union, spec, config, print)?;
         }
         _ => {}
     }
@@ -890,6 +941,7 @@ fn resolve_aliases_in_union(
     union: &stellar_xdr::ScSpecUdtUnionV0,
     spec: &Spec,
     config: &config::Args,
+    print: &Print,
 ) -> Result<bool, Error> {
     use stellar_xdr::ScSpecUdtUnionCaseV0;
 
@@ -910,12 +962,12 @@ fn resolve_aliases_in_union(
     // matching the form `soroban_spec_tools` accepts. Variants with two or more
     // elements take an array payload — `{"Variant": [a, b, ...]}`.
     if tuple.type_.len() == 1 {
-        return resolve_aliases_in_json(payload, &tuple.type_[0], spec, config);
+        return resolve_aliases_in_json(payload, &tuple.type_[0], spec, config, print);
     }
     let mut mutated = false;
     if let serde_json::Value::Array(arr) = payload {
         for (item, ty) in arr.iter_mut().zip(tuple.type_.iter()) {
-            mutated |= resolve_aliases_in_json(item, ty, spec, config)?;
+            mutated |= resolve_aliases_in_json(item, ty, spec, config, print)?;
         }
     }
     Ok(mutated)
@@ -1157,24 +1209,49 @@ mod tests {
         let config = crate::config::Args::default();
 
         // Bare string (no JSON quoting) should be accepted
-        let result =
-            parse_argument_with_validation("value", "Unit", &expected_type, &spec, &config);
+        let result = parse_argument_with_validation(
+            "value",
+            "Unit",
+            &expected_type,
+            &spec,
+            &config,
+            &Print::new(false),
+        );
         assert!(result.is_ok(), "bare 'Unit' should be accepted: {result:?}");
 
         // JSON-quoted string should also be accepted
-        let result =
-            parse_argument_with_validation("value", "\"Unit\"", &expected_type, &spec, &config);
+        let result = parse_argument_with_validation(
+            "value",
+            "\"Unit\"",
+            &expected_type,
+            &spec,
+            &config,
+            &Print::new(false),
+        );
         assert!(
             result.is_ok(),
             "JSON-quoted '\"Unit\"' should be accepted: {result:?}"
         );
 
         // Both forms should produce the same ScVal
-        let bare = parse_argument_with_validation("value", "Unit", &expected_type, &spec, &config)
-            .unwrap();
-        let quoted =
-            parse_argument_with_validation("value", "\"Unit\"", &expected_type, &spec, &config)
-                .unwrap();
+        let bare = parse_argument_with_validation(
+            "value",
+            "Unit",
+            &expected_type,
+            &spec,
+            &config,
+            &Print::new(false),
+        )
+        .unwrap();
+        let quoted = parse_argument_with_validation(
+            "value",
+            "\"Unit\"",
+            &expected_type,
+            &spec,
+            &config,
+            &Print::new(false),
+        )
+        .unwrap();
         assert_eq!(
             bare, quoted,
             "bare and quoted forms should produce identical ScVal"
@@ -1218,6 +1295,7 @@ mod tests {
             &expected_type,
             &spec,
             &config,
+            &Print::new(false),
         );
         assert!(
             result.is_ok(),
@@ -1257,8 +1335,15 @@ mod tests {
         // Empty object (no case selected) and a wrong-arity tuple payload both
         // used to panic in the parser; both must now come back as CannotParseArg.
         for bad in [r"{}", r#"{"WithValue":{"0":1}}"#] {
-            let err = parse_argument_with_validation("value", bad, &expected_type, &spec, &config)
-                .unwrap_err();
+            let err = parse_argument_with_validation(
+                "value",
+                bad,
+                &expected_type,
+                &spec,
+                &config,
+                &Print::new(false),
+            )
+            .unwrap_err();
             assert!(
                 matches!(err, Error::CannotParseArg { .. }),
                 "input {bad}: got {err:?}"
@@ -1325,7 +1410,8 @@ mod tests {
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!("native");
-        let mutated = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        let mutated =
+            resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false)).unwrap();
         assert!(
             mutated,
             "native should resolve to the native asset contract"
@@ -1353,12 +1439,13 @@ mod tests {
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!([TEST_G_ADDRESS]);
-        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::json!([TEST_G_ADDRESS]));
 
         // An unknown alias-shaped string at a nested Address position must surface as an error.
         let mut value = serde_json::json!(["definitely-not-a-known-alias"]);
-        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false))
+            .unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
@@ -1378,11 +1465,12 @@ mod tests {
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!([TEST_G_ADDRESS, 42]);
-        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::json!([TEST_G_ADDRESS, 42]));
 
         let mut value = serde_json::json!(["bogus-alias", 42]);
-        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false))
+            .unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
@@ -1408,7 +1496,7 @@ mod tests {
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!({"count": 1, "addresses": [TEST_G_ADDRESS]});
-        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(
             value,
             serde_json::json!({"count": 1, "addresses": [TEST_G_ADDRESS]})
@@ -1416,7 +1504,8 @@ mod tests {
 
         // Walker must reach the Address inside Vec inside the struct field.
         let mut value = serde_json::json!({"count": 1, "addresses": ["bogus-alias"]});
-        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false))
+            .unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
@@ -1450,11 +1539,12 @@ mod tests {
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!({"Pick": [TEST_G_ADDRESS, 42]});
-        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::json!({"Pick": [TEST_G_ADDRESS, 42]}));
 
         let mut value = serde_json::json!({"Pick": ["bogus-alias", 42]});
-        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false))
+            .unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
@@ -1487,11 +1577,12 @@ mod tests {
 
         // Bare payload form: {"Only": addr} — not {"Only": [addr]}.
         let mut value = serde_json::json!({"Only": TEST_G_ADDRESS});
-        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::json!({"Only": TEST_G_ADDRESS}));
 
         let mut value = serde_json::json!({"Only": "bogus-alias"});
-        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false))
+            .unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
@@ -1509,11 +1600,11 @@ mod tests {
         let config = crate::config::Args::default();
 
         let mut value = serde_json::Value::Null;
-        resolve_aliases_in_json(&mut value, &opt_ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &opt_ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::Value::Null);
 
         let mut value = serde_json::json!(TEST_G_ADDRESS);
-        resolve_aliases_in_json(&mut value, &opt_ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &opt_ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::json!(TEST_G_ADDRESS));
 
         let map_ty = ScSpecTypeDef::Map(Box::new(ScSpecTypeMap {
@@ -1521,11 +1612,12 @@ mod tests {
             value_type: Box::new(ScSpecTypeDef::Address),
         }));
         let mut value = serde_json::json!({"owner": TEST_G_ADDRESS});
-        resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &map_ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::json!({"owner": TEST_G_ADDRESS}));
 
         let mut value = serde_json::json!({"owner": "bogus-alias"});
-        let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap_err();
+        let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config, &Print::new(false))
+            .unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
@@ -1544,11 +1636,12 @@ mod tests {
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!(TEST_G_ADDRESS);
-        resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::json!(TEST_G_ADDRESS));
 
         let mut value = serde_json::json!("bogus-alias");
-        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config).unwrap_err();
+        let err = resolve_aliases_in_json(&mut value, &ty, &spec, &config, &Print::new(false))
+            .unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
@@ -1568,7 +1661,7 @@ mod tests {
         let config = crate::config::Args::default();
         let pretty = r#"{ "x": 1, "y": 2 }"#;
         assert_eq!(
-            resolve_aliases(pretty, &ty, &spec, &config).unwrap(),
+            resolve_aliases(pretty, &ty, &spec, &config, &Print::new(false)).unwrap(),
             pretty
         );
 
@@ -1579,7 +1672,7 @@ mod tests {
         let spec = Spec(Some(vec![]));
         let pretty = format!(r#"[ "{TEST_G_ADDRESS}" ]"#);
         assert_eq!(
-            resolve_aliases(&pretty, &ty, &spec, &config).unwrap(),
+            resolve_aliases(&pretty, &ty, &spec, &config, &Print::new(false)).unwrap(),
             pretty
         );
     }
@@ -1596,11 +1689,12 @@ mod tests {
         let config = crate::config::Args::default();
 
         let mut value = serde_json::json!({ TEST_G_ADDRESS: 1 });
-        resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap();
+        resolve_aliases_in_json(&mut value, &map_ty, &spec, &config, &Print::new(false)).unwrap();
         assert_eq!(value, serde_json::json!({ TEST_G_ADDRESS: 1 }));
 
         let mut value = serde_json::json!({ "bogus-alias": 1 });
-        let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config).unwrap_err();
+        let err = resolve_aliases_in_json(&mut value, &map_ty, &spec, &config, &Print::new(false))
+            .unwrap_err();
         assert!(
             matches!(err, Error::Config(_) | Error::ScAddress(_)),
             "expected alias-resolution error, got {err:?}"
@@ -1656,6 +1750,7 @@ mod tests {
             &values,
             &spec_entries,
             &config,
+            &Print::new(false),
         )
         .unwrap();
 
@@ -1704,6 +1799,7 @@ mod tests {
             &values,
             &spec_entries,
             &config,
+            &Print::new(false),
         )
         .unwrap();
 
@@ -1736,6 +1832,7 @@ mod tests {
             &values,
             &spec_entries,
             &config,
+            &Print::new(false),
         );
 
         match result {

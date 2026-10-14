@@ -130,7 +130,12 @@ impl Cmd {
         let from = self
             .from
             .clone()
-            .resolve(&config.locator, &network.network_passphrase, None)?
+            .resolve(
+                &config.locator,
+                &network.network_passphrase,
+                None,
+                &crate::print::Print::new(quiet),
+            )?
             .to_string();
         let amount = self.amount.to_string();
 

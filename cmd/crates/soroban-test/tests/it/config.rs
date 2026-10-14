@@ -1241,6 +1241,9 @@ const SEED_PHRASE: &str =
 // A valid strkey charset with a bad checksum: fails to parse yet clears the
 // identity-name check, so it reaches the config lookup.
 const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
+// A valid secret key, used as a legitimate `--from` so a command reaches the
+// resolution of the argument actually under test (`--to`/`--spender`).
+const VALID_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
 
 #[test]
 fn keys_address_resolves_seed_phrase_without_leaking_it() {
@@ -1310,6 +1313,157 @@ fn token_address_param_error_does_not_leak_secret_bearing_input() {
             .stdout(predicate::str::contains(MISTYPED_SECRET).not())
             .stderr(predicate::str::contains(MISTYPED_SECRET).not());
     }
+}
+
+#[test]
+fn contract_id_param_error_does_not_leak_secret_bearing_input() {
+    // `--id`/`--contract-id`/`STELLAR_CONTRACT_ID` share `UnresolvedContract`; a
+    // mistyped secret pasted there fails to resolve before any network call, so
+    // the "contract not found" error must not echo it. `contract fetch --id`
+    // stands in for the shared resolve path.
+    let sandbox = TestEnv::default();
+    // A seed phrase additionally fails alias-name validation (spaces) before the
+    // lookup, so cover both the mistyped strkey and the seed-phrase paths.
+    for input in [MISTYPED_SECRET, SEED_PHRASE] {
+        sandbox
+            .new_assert_cmd("contract")
+            .args(["fetch", "--id", input, "--network", "testnet"])
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains(input).not())
+            .stderr(predicate::str::contains(input).not());
+    }
+}
+
+#[test]
+fn contract_id_param_error_names_plain_alias() {
+    // A genuine alias typo is not secret-bearing, so the error still names it —
+    // otherwise a multi-argument command gives no clue which value was wrong.
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("contract")
+        .args(["fetch", "--id", "nosuchalias", "--network", "testnet"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("nosuchalias"));
+}
+
+#[test]
+fn address_param_error_names_plain_alias() {
+    // Same contract for the address params: a mistyped alias (not secret-bearing)
+    // is still echoed so the user can see which value failed.
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "balance",
+            "--id",
+            "native",
+            "--account",
+            "nosuchalias",
+            "--rpc-url",
+            "http://localhost:1",
+            "--network-passphrase",
+            "Test SDF Network ; September 2015",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("nosuchalias"));
+}
+
+#[test]
+fn token_from_param_error_does_not_leak_secret_bearing_input() {
+    // `--from` is the signing account (`UnresolvedMuxedAccount`); a mistyped
+    // secret pasted there must surface the concealing "invalid signing key"
+    // error, resolved before any network call.
+    let sandbox = TestEnv::default();
+    for output in ["text", "json"] {
+        sandbox
+            .new_assert_cmd("token")
+            .args([
+                "transfer",
+                "--id",
+                "native",
+                "--from",
+                MISTYPED_SECRET,
+                "--to",
+                "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ",
+                "--amount",
+                "1",
+                "--output",
+                output,
+                "--rpc-url",
+                "http://localhost:1",
+                "--network-passphrase",
+                "Test SDF Network ; September 2015",
+            ])
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains(MISTYPED_SECRET).not())
+            .stderr(predicate::str::contains(MISTYPED_SECRET).not());
+    }
+}
+
+#[test]
+fn token_to_param_error_does_not_leak_secret_bearing_input() {
+    // A valid `--from` lets resolution reach `--to` (`UnresolvedScAddress`); a
+    // mistyped secret there must not be echoed, in text or JSON.
+    let sandbox = TestEnv::default();
+    for output in ["text", "json"] {
+        sandbox
+            .new_assert_cmd("token")
+            .args([
+                "transfer",
+                "--id",
+                "native",
+                "--from",
+                VALID_SECRET,
+                "--to",
+                MISTYPED_SECRET,
+                "--amount",
+                "1",
+                "--output",
+                output,
+                "--rpc-url",
+                "http://localhost:1",
+                "--network-passphrase",
+                "Test SDF Network ; September 2015",
+            ])
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains(MISTYPED_SECRET).not())
+            .stderr(predicate::str::contains(MISTYPED_SECRET).not());
+    }
+}
+
+#[test]
+fn token_spender_param_error_does_not_leak_secret_bearing_input() {
+    // `--spender` also shares `UnresolvedScAddress`; a valid `--from` lets
+    // resolution reach it, and a mistyped secret there must not be echoed.
+    let sandbox = TestEnv::default();
+    sandbox
+        .new_assert_cmd("token")
+        .args([
+            "approve",
+            "--id",
+            "native",
+            "--from",
+            VALID_SECRET,
+            "--spender",
+            MISTYPED_SECRET,
+            "--amount",
+            "1",
+            "--expiration-ledger",
+            "1000",
+            "--rpc-url",
+            "http://localhost:1",
+            "--network-passphrase",
+            "Test SDF Network ; September 2015",
+        ])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(MISTYPED_SECRET).not())
+        .stderr(predicate::str::contains(MISTYPED_SECRET).not());
 }
 
 #[test]
