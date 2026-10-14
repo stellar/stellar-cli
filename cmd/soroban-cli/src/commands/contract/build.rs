@@ -316,7 +316,7 @@ impl Cmd {
 
         // Run build configuration checks (only when actually building)
         if !self.print_commands_only {
-            run_checks(metadata.workspace_root.as_std_path(), &self.profile)?;
+            run_checks(metadata.workspace_root.as_std_path(), &self.profile, &print)?;
         }
 
         if let Some(package) = &self.package {
@@ -824,7 +824,7 @@ pub(crate) fn get_wasm_target() -> Result<String, Error> {
 }
 
 /// Run build configuration checks and return an error if configuration is invalid.
-fn run_checks(workspace_root: &Path, profile: &str) -> Result<(), Error> {
+fn run_checks(workspace_root: &Path, profile: &str, print: &Print) -> Result<(), Error> {
     let cargo_toml_path = workspace_root.join("Cargo.toml");
 
     let cargo_toml_str = match fs::read_to_string(&cargo_toml_path) {
@@ -846,8 +846,53 @@ fn run_checks(workspace_root: &Path, profile: &str) -> Result<(), Error> {
     };
 
     check_overflow_checks(&doc, profile)?;
+    if let Some(warning) = check_lto(&doc, profile) {
+        print.warnln(warning);
+    }
     // Future checks can be added here
     Ok(())
+}
+
+/// Check if lto is set to `thin` or `fat` (or `true`, which is equivalent to
+/// `fat`) for the specified profile, following the profile inheritance chain.
+/// Returns a warning message if not.
+fn check_lto(doc: &toml_edit::DocumentMut, profile: &str) -> Option<String> {
+    let mut current = profile.to_string();
+    let mut visited = Vec::new();
+    let lto = loop {
+        if visited.contains(&current) {
+            break None; // Prevent infinite loops
+        }
+        visited.push(current.clone());
+        let Some(profile_section) = doc.get("profile").and_then(|p| p.get(&current)) else {
+            break None;
+        };
+        if let Some(lto) = profile_section.get("lto") {
+            break Some(lto);
+        }
+        let Some(inherits) = profile_section.get("inherits").and_then(|v| v.as_str()) else {
+            break None;
+        };
+        current = inherits.to_string();
+    };
+
+    match lto.and_then(toml_edit::Item::as_value) {
+        Some(toml_edit::Value::Boolean(b)) if *b.value() => None,
+        Some(toml_edit::Value::String(s)) if matches!(s.value().as_str(), "thin" | "fat") => None,
+        value => {
+            let configured = match value {
+                Some(toml_edit::Value::String(s)) => format!("configured to \"{}\"", s.value()),
+                Some(v) => format!("configured to \"{}\"", v.to_string().trim()),
+                None => "not configured".to_string(),
+            };
+            Some(format!(
+                "When LTO is {configured} for profile `{profile}` the contract interface may \
+                not be produced correctly. Configure `lto` to \"thin\" or \"fat\" in \
+                [profile.{profile}] in the Cargo.toml if the build errors indicating there are \
+                spec/interface entries missing."
+            ))
+        }
+    }
 }
 
 /// Check if overflow-checks is enabled for the specified profile.
@@ -947,6 +992,37 @@ mod tests {
             vec![("field".to_string(), "value".to_string())]
         );
         assert_eq!(cmd.run_args.cpus, Some(2));
+    }
+
+    fn lto_warning(toml: &str) -> Option<String> {
+        check_lto(&toml.parse().unwrap(), "release")
+    }
+
+    #[test]
+    fn lto_thin_fat_or_true_has_no_warning() {
+        assert_eq!(lto_warning("[profile.release]\nlto = \"thin\""), None);
+        assert_eq!(lto_warning("[profile.release]\nlto = \"fat\""), None);
+        assert_eq!(lto_warning("[profile.release]\nlto = true"), None);
+    }
+
+    #[test]
+    fn lto_other_values_or_unset_warn() {
+        for toml in [
+            "[profile.release]\nlto = false",
+            "[profile.release]\nlto = \"off\"",
+            "[profile.release]\nopt-level = \"z\"",
+            "",
+        ] {
+            assert!(lto_warning(toml).is_some(), "expected warning for {toml:?}");
+        }
+    }
+
+    #[test]
+    fn lto_follows_inherits() {
+        let toml = "[profile.base]\nlto = \"thin\"\n[profile.release]\ninherits = \"base\"";
+        assert_eq!(lto_warning(toml), None);
+        let toml = "[profile.base]\nlto = \"off\"\n[profile.release]\ninherits = \"base\"";
+        assert!(lto_warning(toml).is_some());
     }
 
     #[test]
