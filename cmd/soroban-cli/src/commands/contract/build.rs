@@ -584,7 +584,7 @@ impl Cmd {
             if matches!(e, soroban_spec::reduce::Error::UndefinedName(_)) {
                 msg = format!(
                     "{msg}. Check that [profile.{profile}] in the Cargo.toml does not have \
-                    `lto` disabled, it should be set to \"thin\" or \"fat\"."
+                    `lto` disabled, it should be set to `true`, \"thin\", or \"fat\"."
                 );
             }
             Error::ReduceSpec(msg)
