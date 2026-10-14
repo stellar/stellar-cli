@@ -111,6 +111,13 @@ pub enum HardwareKind {
 /// would miss exactly the case that matters.
 #[must_use]
 pub fn looks_like_secret(value: &str) -> bool {
+    // Trim first: a secret pasted with surrounding whitespace (a quoted shell
+    // arg, a `STELLAR_CONTRACT_ID` env value) would otherwise fail the `S`-prefix
+    // check on a leading space and leak the near-complete key. No legitimate
+    // alias has surrounding whitespace anyway, so trimming only ever conceals
+    // more. The multi-word check below already ignores leading/trailing
+    // whitespace via `split_whitespace`, so it reads the same trimmed value.
+    let value = value.trim();
     // A secret seed strkey is `S…`, 56 uppercase base32 characters. Match on the
     // `S` prefix and length (with slack for a dropped/added character) and
     // tolerate a few stray characters, so a typo that lands outside the base32
@@ -333,6 +340,10 @@ mod tests {
         assert!(looks_like_secret(
             "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ401"
         ));
+        // Surrounding whitespace (a quoted arg or env value) must not defeat
+        // detection: a leading space would otherwise fail the `S`-prefix check.
+        assert!(looks_like_secret(&format!(" {TEST_SECRET_KEY}")));
+        assert!(looks_like_secret(&format!("{TEST_SECRET_KEY} ")));
     }
 
     #[test]
