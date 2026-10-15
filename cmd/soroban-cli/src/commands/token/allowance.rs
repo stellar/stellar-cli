@@ -122,12 +122,22 @@ impl Cmd {
         let from = self
             .from
             .clone()
-            .resolve(&config.locator, &network.network_passphrase, None)?
+            .resolve(
+                &config.locator,
+                &network.network_passphrase,
+                None,
+                &crate::print::Print::new(quiet),
+            )?
             .to_string();
         let spender = self
             .spender
             .clone()
-            .resolve(&config.locator, &network.network_passphrase, None)?
+            .resolve(
+                &config.locator,
+                &network.network_passphrase,
+                None,
+                &crate::print::Print::new(quiet),
+            )?
             .to_string();
 
         // SEP-41 `allowance(from, spender) -> i128`.

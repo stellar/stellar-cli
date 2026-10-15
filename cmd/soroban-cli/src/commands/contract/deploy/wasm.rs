@@ -415,6 +415,7 @@ impl Cmd {
                         &slop,
                         &entries,
                         config,
+                        &print,
                     )?;
                     (Some(invoke_args), signers)
                 }
