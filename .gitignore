@@ -5,7 +5,6 @@ snapshot.json
 !test.toml
 *.sqlite
 test_snapshots
-.vscode/settings.json
 .idea
 local.sh
 .stellar
@@ -14,3 +13,4 @@ node_modules/
 .DS_Store
 logs/
 ai-summary/
+config.bat
