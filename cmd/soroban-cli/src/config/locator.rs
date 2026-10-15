@@ -369,8 +369,12 @@ impl Args {
                 hd_path: effective,
             });
             // Best-effort write-back: if persistence fails we still return the
-            // freshly-derived value so the current call succeeds.
-            let _ = self.write_key(key_or_name, &migrated);
+            // freshly-derived value so the current call succeeds. Only persist the
+            // cache when deriving for the identity's own default hd_path. A one-off
+            // override with `--hd-path N` must not permanently mutate the identity on disk.
+            if hd_path.is_none() || hd_path == *persisted_hd_path {
+                let _ = self.write_key(key_or_name, &migrated);
+            }
             return Ok(migrated);
         }
         Ok(key)
@@ -1648,6 +1652,33 @@ mod tests {
                 .read_key_with_secure_store_cache(TEST_PUBLIC_KEY, None)
                 .unwrap();
             assert!(matches!(key, Key::PublicKey(_)));
+        }
+
+        #[test]
+        fn does_not_persist_hd_path_override_on_one_off_lookup() {
+            let (_dir, locator) = locator_with_tempdir();
+
+            let unmigrated = Secret::SecureStore {
+                entry_name: "secure_store:org.stellar.cli-alice".to_string(),
+                public_key: None,
+                hd_path: None,
+            };
+            locator.write_identity("alice", &unmigrated).unwrap();
+
+            // Calling with an explicit one-off hd_path override (e.g. Some(3))
+            // must not rewrite the identity on disk.
+            let _ = locator.read_key_with_secure_store_cache("alice", Some(3));
+
+            // Verify identity on disk still has its original unmutated hd_path: None
+            let disk_identity = locator.read_identity("alice").unwrap();
+            assert!(matches!(
+                disk_identity,
+                Key::Secret(Secret::SecureStore {
+                    public_key: None,
+                    hd_path: None,
+                    ..
+                })
+            ));
         }
     }
 
