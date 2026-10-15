@@ -333,9 +333,16 @@ impl Cmd {
                     &inv.args,
                     spec_entries,
                     config,
+                    &print,
                 )?;
             } else {
-                build_host_function_parameters(&contract_id, &self.slop, spec_entries, config)?;
+                build_host_function_parameters(
+                    &contract_id,
+                    &self.slop,
+                    spec_entries,
+                    config,
+                    &print,
+                )?;
             }
         }
 
@@ -367,9 +374,10 @@ impl Cmd {
                 &inv.args,
                 &spec_entries,
                 config,
+                &print,
             )?
         } else {
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config)?
+            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config, &print)?
         };
 
         let (function, spec, host_function_params, signers) = params;

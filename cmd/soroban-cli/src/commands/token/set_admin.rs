@@ -125,7 +125,12 @@ impl Cmd {
         let new_admin = self
             .new_admin
             .clone()
-            .resolve(&config.locator, &network.network_passphrase, None)?
+            .resolve(
+                &config.locator,
+                &network.network_passphrase,
+                None,
+                &crate::print::Print::new(quiet),
+            )?
             .to_string();
 
         // SAC `set_admin(new_admin)` — supply the value and let the contract's

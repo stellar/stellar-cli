@@ -1,8 +1,11 @@
 use std::str::FromStr;
 
+use soroban_spec_tools::sanitize;
+
+use crate::print::Print;
 use crate::xdr;
 
-use super::{alias, key, locator, UnresolvedContract};
+use super::{alias, key, locator, secret, UnresolvedContract};
 
 /// `ScAddress` can be either a resolved `xdr::ScAddress` or an alias of a `Contract` or `MuxedAccount`.
 #[allow(clippy::module_name_repetitions)]
@@ -16,11 +19,12 @@ impl std::fmt::Debug for UnresolvedScAddress {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UnresolvedScAddress::Resolved(addr) => f.debug_tuple("Resolved").field(addr).finish(),
-            // Never echo the raw input: it may be a secret key or seed phrase
-            // pasted where an alias was expected.
-            UnresolvedScAddress::Alias(_) => {
+            // A genuine alias is safe to show, but never echo a secret key or
+            // seed phrase pasted where an address was expected.
+            UnresolvedScAddress::Alias(alias) if secret::looks_like_secret(alias) => {
                 f.debug_tuple("Alias").field(&"<alias or secret>").finish()
             }
+            UnresolvedScAddress::Alias(alias) => f.debug_tuple("Alias").field(alias).finish(),
         }
     }
 }
@@ -31,18 +35,43 @@ impl Default for UnresolvedScAddress {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Key(#[from] key::Error),
-    // The input is never echoed: a secret key or seed phrase mistyped where an
-    // address was expected must not reach the terminal, logs, or JSON output.
-    #[error("invalid address or alias")]
-    AccountAliasNotFound,
+    // A genuine alias typo is named so the user can see which value was wrong,
+    // but a secret key or seed phrase mistyped where an address was expected is
+    // concealed so it never reaches the terminal, logs, or JSON output. The
+    // hand-written `Debug` below redacts the same value, so a debug formatter or
+    // logger can't leak it either.
+    #[error("{}", address_not_found_message(.0))]
+    AccountAliasNotFound(String),
     #[error("alias '{0}' is reserved for the native asset contract but also matches a stored key; pass an explicit contract (C...) or account (G...) address instead")]
     ReservedAliasShadowsKey(String),
+}
+
+impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Locator(e) => f.debug_tuple("Locator").field(e).finish(),
+            Error::Key(e) => f.debug_tuple("Key").field(e).finish(),
+            // Never echo a secret pasted where an address was expected, even
+            // through a debug formatter or logger.
+            Error::AccountAliasNotFound(value) if secret::looks_like_secret(value) => f
+                .debug_tuple("AccountAliasNotFound")
+                .field(&"<alias or secret>")
+                .finish(),
+            Error::AccountAliasNotFound(value) => {
+                f.debug_tuple("AccountAliasNotFound").field(value).finish()
+            }
+            Error::ReservedAliasShadowsKey(value) => f
+                .debug_tuple("ReservedAliasShadowsKey")
+                .field(value)
+                .finish(),
+        }
+    }
 }
 
 impl FromStr for UnresolvedScAddress {
@@ -89,6 +118,7 @@ impl UnresolvedScAddress {
         locator: &locator::Args,
         network_passphrase: &str,
         hd_path: Option<u32>,
+        print: &Print,
     ) -> Result<xdr::ScAddress, Error> {
         let alias = match self {
             UnresolvedScAddress::Resolved(addr) => return Ok(addr),
@@ -104,9 +134,7 @@ impl UnresolvedScAddress {
                 if alias::is_reserved(&alias) {
                     return Err(Error::ReservedAliasShadowsKey(alias));
                 }
-                eprintln!(
-                    "Warning: ScAddress alias {alias} is ambiguous, assuming it is a contract"
-                );
+                print.warnln(ambiguous_alias_warning(&alias));
                 Ok(xdr::ScAddress::Contract(stellar_xdr::ContractId(
                     xdr::Hash(contract.0),
                 )))
@@ -131,8 +159,33 @@ impl UnresolvedScAddress {
                     xdr::ScAddress::MuxedAccount(xdr::MuxedEd25519Account { id, ed25519 })
                 }
             }),
-            _ => Err(Error::AccountAliasNotFound),
+            _ => Err(Error::AccountAliasNotFound(alias)),
         }
+    }
+}
+
+// Build the address "not found" message, concealing the input when it looks like
+// a secret key or seed phrase mistyped where an address was expected. A genuine
+// alias typo is named so the user can tell which argument and value were wrong.
+fn address_not_found_message(value: &str) -> String {
+    if secret::looks_like_secret(value) {
+        "invalid address or alias".to_string()
+    } else {
+        format!("address alias '{}' not found", sanitize(value))
+    }
+}
+
+// The ambiguous-alias warning names the alias so the user can tell which one
+// collided, but a secret key or seed phrase saved as an alias is concealed so it
+// never reaches the terminal, logs, or JSON output.
+fn ambiguous_alias_warning(value: &str) -> String {
+    if secret::looks_like_secret(value) {
+        "ScAddress alias is ambiguous, assuming it is a contract".to_string()
+    } else {
+        format!(
+            "ScAddress alias {} is ambiguous, assuming it is a contract",
+            sanitize(value)
+        )
     }
 }
 
@@ -159,7 +212,7 @@ mod tests {
         KeyType::Identity.write(native, &key, dir.path()).unwrap();
 
         let err = UnresolvedScAddress::Alias(native.to_string())
-            .resolve(&locator, network_passphrase, None)
+            .resolve(&locator, network_passphrase, None, &Print::new(false))
             .unwrap_err();
 
         assert!(matches!(err, Error::ReservedAliasShadowsKey(alias) if alias == native));
@@ -193,7 +246,7 @@ mod tests {
         .unwrap();
 
         let err = UnresolvedScAddress::Alias(native.to_string())
-            .resolve(&locator, network_passphrase, None)
+            .resolve(&locator, network_passphrase, None, &Print::new(false))
             .unwrap_err();
 
         assert!(matches!(
@@ -219,7 +272,7 @@ mod tests {
         KeyType::Identity.write("bobmux", &key, dir.path()).unwrap();
 
         let resolved = UnresolvedScAddress::Alias("bobmux".to_string())
-            .resolve(&locator, network_passphrase, None)
+            .resolve(&locator, network_passphrase, None, &Print::new(false))
             .unwrap();
 
         assert_eq!(resolved, xdr::ScAddress::from_str(MUXED).unwrap());
@@ -344,7 +397,7 @@ mod tests {
         for input in [MISTYPED_SECRET, MALFORMED_SEED] {
             let err = UnresolvedScAddress::from_str(input)
                 .unwrap()
-                .resolve(&locator, network_passphrase, None)
+                .resolve(&locator, network_passphrase, None, &Print::new(false))
                 .unwrap_err();
             assert!(
                 !err.to_string().contains(input),
@@ -359,5 +412,79 @@ mod tests {
             let address = UnresolvedScAddress::from_str(input).unwrap();
             assert!(!format!("{address:?}").contains(input));
         }
+    }
+
+    #[test]
+    fn resolve_names_plain_alias() {
+        let dir = tempfile::tempdir().unwrap();
+        let locator = locator::Args {
+            config_dir: Some(dir.path().to_path_buf()),
+        };
+        let network_passphrase = "Test Network";
+
+        // A genuine alias typo is not secret-bearing, so it is still named in the
+        // error — otherwise a multi-address command gives no clue which value
+        // failed.
+        let err = UnresolvedScAddress::Alias("nosuchalias".to_string())
+            .resolve(&locator, network_passphrase, None, &Print::new(false))
+            .unwrap_err();
+        assert!(err.to_string().contains("nosuchalias"), "got: {err}");
+    }
+
+    #[test]
+    fn debug_echoes_plain_alias() {
+        let address = UnresolvedScAddress::from_str("nosuchalias").unwrap();
+        assert!(format!("{address:?}").contains("nosuchalias"));
+    }
+
+    #[test]
+    fn debug_error_conceals_secret_bearing_input() {
+        // The error's own `Debug` must not leak the raw input either, so a debug
+        // formatter or logger can't print a secret pasted where an address was
+        // expected.
+        for input in [MISTYPED_SECRET, MALFORMED_SEED] {
+            let err = Error::AccountAliasNotFound(input.to_string());
+            assert!(!format!("{err:?}").contains(input));
+        }
+    }
+
+    #[test]
+    fn debug_error_names_plain_alias() {
+        let err = Error::AccountAliasNotFound("nosuchalias".to_string());
+        assert!(format!("{err:?}").contains("nosuchalias"));
+    }
+
+    #[test]
+    fn ambiguous_warning_conceals_secret_bearing_input() {
+        for input in [MISTYPED_SECRET, MALFORMED_SEED] {
+            assert!(!ambiguous_alias_warning(input).contains(input));
+        }
+    }
+
+    #[test]
+    fn ambiguous_warning_names_plain_alias() {
+        assert!(ambiguous_alias_warning("nosuchalias").contains("nosuchalias"));
+    }
+
+    // A named value reaches the terminal, so terminal control characters in a
+    // mistyped alias must be escaped rather than interpreted.
+    const CONTROL_CHARS: &str = "alias\u{1b}[31m\u{7}";
+
+    #[test]
+    fn not_found_message_escapes_control_characters() {
+        let message = address_not_found_message(CONTROL_CHARS);
+        assert!(
+            !message.contains('\u{1b}') && !message.contains('\u{7}'),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn ambiguous_warning_escapes_control_characters() {
+        let message = ambiguous_alias_warning(CONTROL_CHARS);
+        assert!(
+            !message.contains('\u{1b}') && !message.contains('\u{7}'),
+            "{message}"
+        );
     }
 }
