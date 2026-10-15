@@ -340,8 +340,11 @@ impl Args {
     }
 
     /// Like [`Args::read_key`], but for a `SecureStore` identity loaded from disk
-    /// that lacks a cached public key, derive one via the keychain (one prompt)
-    /// and persist it back so subsequent reads avoid the keychain.
+    /// that lacks a cached public key, derive one via the keychain (one prompt).
+    /// If the derived public key corresponds to the identity's configured derivation
+    /// path (or no explicit override was passed), it is persisted back to disk so
+    /// subsequent reads avoid the keychain. A differing one-off `hd_path` override
+    /// is derived in-memory and returned without mutating the identity on disk.
     pub fn read_key_with_secure_store_cache(
         &self,
         key_or_name: &str,
@@ -392,8 +395,10 @@ impl Args {
 
     /// Like [`Args::get_secret_key`], but if the secret is a `SecureStore`
     /// identity loaded from disk without a cached public key, derive it for the
-    /// given `hd_path` and persist the cache. Use from signing paths so the
-    /// returned `Secret` already carries the data signing needs for the hint.
+    /// given `hd_path`. If `hd_path` matches the identity's configured derivation
+    /// path (or none was configured), persist the cache to disk. Use from signing
+    /// paths so the returned `Secret` already carries the data signing needs for
+    /// the hint.
     pub fn get_secret_key_with_hd_path(
         &self,
         key_or_name: &str,
@@ -1594,7 +1599,8 @@ mod tests {
             (dir, args)
         }
 
-        // The legacy-file -> derive-via-keychain -> write-back path is
+        // The legacy-file -> derive-via-keychain -> write-back path (including
+        // preserving unmigrated state on one-off --hd-path overrides) is
         // exercised end-to-end by the soroban-test integration test
         // `secure_store_key_management`. The keyring crate's mock builder
         // assigns each `Entry` instance its own in-memory credential
@@ -1652,33 +1658,6 @@ mod tests {
                 .read_key_with_secure_store_cache(TEST_PUBLIC_KEY, None)
                 .unwrap();
             assert!(matches!(key, Key::PublicKey(_)));
-        }
-
-        #[test]
-        fn does_not_persist_hd_path_override_on_one_off_lookup() {
-            let (_dir, locator) = locator_with_tempdir();
-
-            let unmigrated = Secret::SecureStore {
-                entry_name: "secure_store:org.stellar.cli-alice".to_string(),
-                public_key: None,
-                hd_path: None,
-            };
-            locator.write_identity("alice", &unmigrated).unwrap();
-
-            // Calling with an explicit one-off hd_path override (e.g. Some(3))
-            // must not rewrite the identity on disk.
-            let _ = locator.read_key_with_secure_store_cache("alice", Some(3));
-
-            // Verify identity on disk still has its original unmutated hd_path: None
-            let disk_identity = locator.read_identity("alice").unwrap();
-            assert!(matches!(
-                disk_identity,
-                Key::Secret(Secret::SecureStore {
-                    public_key: None,
-                    hd_path: None,
-                    ..
-                })
-            ));
         }
     }
 
