@@ -373,10 +373,16 @@ impl Args {
             });
             // Best-effort write-back: if persistence fails we still return the
             // freshly-derived value so the current call succeeds. Only persist the
-            // cache when deriving for the identity's own default hd_path. A one-off
-            // override with `--hd-path N` must not permanently mutate the identity on disk.
-            if hd_path.is_none() || hd_path == *persisted_hd_path {
-                let _ = self.write_key(key_or_name, &migrated);
+            // cache when deriving for the identity's own default hd_path (normalizing
+            // None and Some(0) as the same path, consistent with the rest of the codebase).
+            // A one-off override with `--hd-path N` must not permanently mutate the identity on disk.
+            if effective.unwrap_or_default() == persisted_hd_path.unwrap_or_default() {
+                let to_persist = Key::Secret(Secret::SecureStore {
+                    entry_name: entry_name.clone(),
+                    public_key: Some(format!("{pk}")),
+                    hd_path: *persisted_hd_path,
+                });
+                let _ = self.write_key(key_or_name, &to_persist);
             }
             return Ok(migrated);
         }
