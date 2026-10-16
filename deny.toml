@@ -239,9 +239,6 @@ allow-git = [
   "https://github.com/stellar/rs-soroban-sdk?rev=31e4df3e6ab3ffb45811976f4b01597a4147049b",
   # The rs-soroban-env rev that the rs-soroban-sdk rev above uses.
   "https://github.com/stellar/rs-soroban-env?rev=6e6c4a87f46c7fdab0c2e2be82901b1e32378223",
-  # rs-stellar-rpc-client with stellar/rs-stellar-rpc-client#121, which updates
-  # it to stellar-xdr 30.
-  "https://github.com/stellar/rs-stellar-rpc-client?rev=69e3282b6bc190419b64a3f9dd9eb579a84f9f00",
 ]
 
 [sources.allow-org]
