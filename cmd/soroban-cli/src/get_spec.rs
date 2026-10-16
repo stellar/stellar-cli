@@ -62,7 +62,7 @@ pub async fn get_remote_contract_spec(
     // resolve to a Wasm hash whose spec is fetched (and cached) the same way.
     Ok(match executable {
         ContractExecutable::StellarAsset => {
-            soroban_spec::read::parse_raw(stellar_asset_spec::xdr())?
+            soroban_spec::read::parse_raw(&stellar_asset_spec::xdr())?
         }
         ContractExecutable::Wasm(hash) => {
             get_spec_for_wasm_hash(&client, &hash, global_args).await?

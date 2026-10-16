@@ -553,7 +553,9 @@ fn resolve_address(
             )?;
             match addr {
                 xdr::ScAddress::Account(account) => account.to_string(),
-                contract @ xdr::ScAddress::Contract(_) => contract.to_string(),
+                contract @ (xdr::ScAddress::Contract(_) | xdr::ScAddress::MuxedContract(_)) => {
+                    contract.to_string()
+                }
                 stellar_xdr::ScAddress::MuxedAccount(account) => account.to_string(),
                 stellar_xdr::ScAddress::ClaimableBalance(_)
                 | stellar_xdr::ScAddress::LiquidityPool(_) => {

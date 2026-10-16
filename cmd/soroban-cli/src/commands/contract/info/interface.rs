@@ -63,7 +63,7 @@ impl Cmd {
                 (spec.spec_base64.unwrap(), spec.spec, sdk_major_version)
             }
             shared::Contract::StellarAssetContract => {
-                let (base64, spec) = Spec::spec_to_base64(stellar_asset_spec::xdr())?;
+                let (base64, spec) = Spec::spec_to_base64(&stellar_asset_spec::xdr())?;
                 (base64, spec, None)
             }
         };

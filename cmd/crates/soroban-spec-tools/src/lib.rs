@@ -6,13 +6,13 @@ use itertools::Itertools;
 use serde_json::{json, Value};
 use stellar_xdr::{
     AccountId, BytesM, ContractExecutable, ContractExecutableExternalRef, ContractId,
-    Error as XdrError, Hash, Int128Parts, Int256Parts, MuxedEd25519Account, PublicKey, ScAddress,
-    ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry, ScSpecEventV0,
-    ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption, ScSpecTypeResult,
-    ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0, ScSpecUdtErrorEnumCaseV0,
-    ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0, ScSpecUdtUnionCaseV0,
-    ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal, ScVec, StringM,
-    UInt128Parts, UInt256Parts, Uint256, VecM,
+    Error as XdrError, Hash, Int128Parts, Int256Parts, MuxedContract, MuxedEd25519Account,
+    PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
+    ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
+    ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
+    ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
+    ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal,
+    ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod contract;
@@ -1172,6 +1172,16 @@ fn sc_address_to_json(v: &ScAddress) -> Value {
                 id: *id,
             }
         )),
+        ScAddress::MuxedContract(MuxedContract {
+            id,
+            contract_id: ContractId(h),
+        }) => Value::String(format!(
+            "{}",
+            stellar_strkey::MuxedContract {
+                contract_id: h.0,
+                id: *id,
+            }
+        )),
         ScAddress::ClaimableBalance(_) => todo!("ClaimableBalance is not supported"),
         ScAddress::LiquidityPool(_) => todo!("LiquidityPool is not supported"),
     }
@@ -1193,6 +1203,12 @@ fn sc_address_from_json(s: &str) -> Result<ScVal, Error> {
                     id: m.id,
                 }),
             )),
+            stellar_strkey::Strkey::MuxedContract(m) => {
+                Some(ScVal::Address(ScAddress::MuxedContract(MuxedContract {
+                    id: m.id,
+                    contract_id: ContractId(Hash(m.contract_id)),
+                })))
+            }
             _ => None,
         })?
         .ok_or(Error::InvalidValue(Some(ScType::Address)))
