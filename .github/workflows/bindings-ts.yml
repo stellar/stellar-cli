@@ -24,11 +24,11 @@ jobs:
           - sys: ${{ github.event_name != 'push' && !startsWith(github.ref_name, 'release/') && 'macos-15-large' }}
     runs-on: ${{ matrix.sys }}
     steps:
-      # Protocol 30 is not yet in a quickstart release, so run it from
-      # core master.
+      # Protocol 30 is not yet in a quickstart release, so run the image built
+      # by stellar/quickstart#1001, which adds the protocol 30 config settings.
       - uses: stellar/quickstart@main
         with:
-          tag: nightly
+          tag: pr1001-nightly
           protocol_version: 30
       - uses: actions/setup-node@v7.1.0
         with:
