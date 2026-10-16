@@ -141,7 +141,12 @@ impl Cmd {
         let key = match key::Key::parse_public_only(&self.public_key) {
             Ok(key) => key,
             Err(err @ key::Error::PublicKeyExpected) => return Err(Error::Key(err)),
-            Err(_) => self.locator.read_key(&self.public_key)?,
+            // Conceal the raw input: a secret key or seed phrase mistyped where a
+            // public key was expected must not be echoed back in the error.
+            Err(_) => self
+                .locator
+                .read_key(&self.public_key)
+                .map_err(locator::Error::conceal_secret_input)?,
         };
         let account = key
             .muxed_account(self.hd_path)
@@ -273,6 +278,29 @@ mod tests {
         };
         let successful = cmd.run(&global);
         assert!(successful.is_err());
+    }
+
+    #[test]
+    fn get_public_key_does_not_leak_mistyped_secret() {
+        // A secret key with its last character changed: a bad checksum that fails
+        // to parse as a key yet clears name validation and reaches the config
+        // lookup, which must not echo it back.
+        const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
+
+        let locator = setup_locator();
+        let cmd = super::Cmd {
+            message: None,
+            base64: false,
+            signature: String::new(),
+            public_key: MISTYPED_SECRET.to_string(),
+            hd_path: None,
+            locator,
+        };
+        let err = cmd.get_public_key().unwrap_err();
+        assert!(
+            !err.to_string().contains(MISTYPED_SECRET),
+            "error leaked secret-bearing input: {err}"
+        );
     }
 
     #[test]

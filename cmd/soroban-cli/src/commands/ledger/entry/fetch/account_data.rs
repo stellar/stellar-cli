@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use super::args::Args;
 use crate::{
     commands::config::{self, locator},
-    xdr::{self, LedgerKey, LedgerKeyData, MuxedAccount, String64},
+    xdr::{self, LedgerKey, LedgerKeyData, String64},
 };
 use clap::Parser;
 
@@ -51,7 +51,7 @@ impl Cmd {
     }
 
     fn insert_data_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        let acc = self.muxed_account(&self.account)?;
+        let acc = super::args::resolve_account(&self.args.locator, &self.account, self.hd_path)?;
         for data_name in &self.data_name {
             let data_name: xdr::StringM<64> = data_name
                 .parse()
@@ -65,13 +65,5 @@ impl Cmd {
         }
 
         Ok(())
-    }
-
-    fn muxed_account(&self, account: &str) -> Result<MuxedAccount, Error> {
-        Ok(self
-            .args
-            .locator
-            .read_key(account)?
-            .muxed_account(self.hd_path)?)
     }
 }
