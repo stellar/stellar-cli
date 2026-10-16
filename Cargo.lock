@@ -4973,7 +4973,7 @@ checksum = "35a5a225b0cc092f0c818c7e51faf9d63d07da8c3157d6250096ca4b8708cfe3"
 dependencies = [
  "ed25519-dalek",
  "ows-signer",
- "stellar-strkey 0.0.18",
+ "stellar-strkey",
  "thiserror 2.0.18",
  "tiny-bip39",
 ]
@@ -5421,7 +5421,7 @@ dependencies = [
  "stellar-asset-spec",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 1.0.0",
+ "stellar-strkey",
  "stellar-xdr",
  "tar",
  "tempfile",
@@ -5503,7 +5503,7 @@ dependencies = [
  "soroban-env-common",
  "soroban-wasmi",
  "static_assertions",
- "stellar-strkey 1.0.0",
+ "stellar-strkey",
  "wasmparser 0.116.1",
 ]
 
@@ -5569,7 +5569,7 @@ dependencies = [
  "soroban-ledger-snapshot",
  "soroban-sdk-macros",
  "soroban-spec",
- "stellar-strkey 1.0.0",
+ "stellar-strkey",
  "stellar-xdr",
  "visibility",
 ]
@@ -5633,7 +5633,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soroban-spec",
- "stellar-strkey 1.0.0",
+ "stellar-strkey",
  "stellar-xdr",
  "thiserror 1.0.69",
  "wasm-encoder 0.235.0",
@@ -5682,7 +5682,7 @@ dependencies = [
  "soroban-spec-tools",
  "stellar-ledger",
  "stellar-rpc-client",
- "stellar-strkey 1.0.0",
+ "stellar-strkey",
  "test-case",
  "testcontainers",
  "thiserror 1.0.69",
@@ -5806,7 +5806,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "stellar-strkey 1.0.0",
+ "stellar-strkey",
  "stellar-xdr",
  "test-case",
  "testcontainers",
@@ -5817,8 +5817,9 @@ dependencies = [
 
 [[package]]
 name = "stellar-rpc-client"
-version = "28.0.0"
-source = "git+https://github.com/stellar/rs-stellar-rpc-client?rev=69e3282b6bc190419b64a3f9dd9eb579a84f9f00#69e3282b6bc190419b64a3f9dd9eb579a84f9f00"
+version = "30.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a97e2088ac568e83bbd7db82c70f225d712903a366c287a6cdfc5f78aa67ebe5"
 dependencies = [
  "clap",
  "hex",
@@ -5831,24 +5832,12 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sha2 0.10.9",
- "stellar-strkey 1.0.0",
+ "stellar-strkey",
  "stellar-xdr",
  "termcolor",
  "termcolor_output",
  "thiserror 1.0.69",
  "tokio",
-]
-
-[[package]]
-name = "stellar-strkey"
-version = "0.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f34ff61c0ca6f1c2b4169e8d1633417bd9225f58b6175e4e317204565d16277"
-dependencies = [
- "crate-git-revision",
- "data-encoding",
- "heapless 0.9.3",
- "zeroize",
 ]
 
 [[package]]
@@ -5889,7 +5878,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sha2 0.10.9",
- "stellar-strkey 1.0.0",
+ "stellar-strkey",
  "thiserror 1.0.69",
 ]
 
