@@ -35,6 +35,49 @@ async fn invoke_test_generate_typescript_bindings() {
 }
 
 #[tokio::test]
+async fn typescript_bindings_do_not_render_operator_rpc_url() {
+    let sandbox = &TestEnv::new();
+    let contract_id = deploy_swap(sandbox).await;
+    let outdir = sandbox.dir().join(OUTPUT_DIR);
+    // A credentialed RPC URL pointing at the local node; the userinfo is ignored
+    // by the node but must never be written into the generated package.
+    let credentialed_rpc =
+        sandbox
+            .network
+            .rpc_url
+            .replacen("http://", "http://alice:supersecret@", 1);
+    let cmd = sandbox.cmd_arr::<soroban_cli::commands::contract::bindings::typescript::Cmd>(&[
+        "--network-passphrase",
+        LOCAL_NETWORK_PASSPHRASE,
+        "--rpc-url",
+        &credentialed_rpc,
+        "--output-dir",
+        &outdir.display().to_string(),
+        "--overwrite",
+        "--contract-id",
+        &contract_id.to_string(),
+    ]);
+
+    cmd.execute(false)
+        .await
+        .expect("Failed to generate TypeScript bindings");
+
+    // The operator's RPC URL (and any credentials in it) is never rendered; a
+    // local default is used instead.
+    let readme = std::fs::read_to_string(outdir.join("README.md")).expect("README.md missing");
+    assert!(!readme.contains("supersecret"));
+    assert!(!readme.contains(&credentialed_rpc));
+    assert!(readme.contains("http://localhost:8000/rpc"));
+
+    // The public contract address is still embedded via the networks export that
+    // consumers and the README example rely on.
+    let index_ts =
+        std::fs::read_to_string(outdir.join("src/index.ts")).expect("src/index.ts missing");
+    assert!(index_ts.contains("export const networks"));
+    assert!(index_ts.contains(&contract_id));
+}
+
+#[tokio::test]
 async fn invoke_test_bindings_context_failure() {
     let sandbox = &TestEnv::new();
     let contract_id = deploy_custom_account(sandbox).await;
