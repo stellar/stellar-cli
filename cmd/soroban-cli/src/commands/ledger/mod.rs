@@ -3,6 +3,7 @@ use clap::Subcommand;
 pub mod entry;
 mod fetch;
 mod latest;
+pub mod replay;
 
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
@@ -12,6 +13,7 @@ pub enum Cmd {
     /// Get the latest ledger sequence and information from the network
     Latest(latest::Cmd),
     Fetch(fetch::Cmd),
+    Replay(replay::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -22,6 +24,8 @@ pub enum Error {
     Latest(#[from] latest::Error),
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+    #[error(transparent)]
+    Replay(#[from] replay::Error),
 }
 
 impl Cmd {
@@ -30,6 +34,7 @@ impl Cmd {
             Cmd::Entry(cmd) => cmd.run().await?,
             Cmd::Latest(cmd) => cmd.run(global_args).await?,
             Cmd::Fetch(cmd) => cmd.run(global_args).await?,
+            Cmd::Replay(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }

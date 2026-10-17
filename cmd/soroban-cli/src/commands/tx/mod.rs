@@ -10,6 +10,7 @@ pub mod hash;
 pub mod help;
 pub mod new;
 pub mod op;
+pub mod replay;
 pub mod send;
 pub mod sign;
 pub mod simulate;
@@ -54,6 +55,7 @@ pub enum Cmd {
     Fetch(fetch::Cmd),
     Decode(decode::Cmd),
     Encode(encode::Cmd),
+    Replay(replay::Cmd),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -82,6 +84,8 @@ pub enum Error {
     Decode(#[from] decode::Error),
     #[error(transparent)]
     Encode(#[from] encode::Error),
+    #[error(transparent)]
+    Replay(#[from] super::ledger::replay::Error),
 }
 
 impl Cmd {
@@ -98,6 +102,7 @@ impl Cmd {
             Cmd::Fetch(cmd) => cmd.run(global_args).await?,
             Cmd::Decode(cmd) => cmd.run()?,
             Cmd::Encode(cmd) => cmd.run()?,
+            Cmd::Replay(cmd) => cmd.run(global_args).await?,
         }
         Ok(())
     }
