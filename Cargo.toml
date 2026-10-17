@@ -46,43 +46,41 @@ path = "cmd/crates/stellar-ledger"
 [workspace.dependencies.stellar-xdr]
 version = "30.0.0"
 
-# Dependencies from the rs-soroban-env repo, pinned to the rev that the
-# rs-soroban-sdk revision below uses, so that both share one soroban-env-host:
+# Dependencies from the rs-soroban-env repo:
 [workspace.dependencies.soroban-env-host]
 version = "=30.0.0"
-git = "https://github.com/stellar/rs-soroban-env"
-rev = "6e6c4a87f46c7fdab0c2e2be82901b1e32378223"
 
-# Dependencies from the rs-soroban-sdk repo, pinned to a rev of main:
+# Dependencies from the rs-soroban-sdk repo, pinned to a rev that uses the
+# soroban-env 30.0.0 release:
 [workspace.dependencies.soroban-spec]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "31e4df3e6ab3ffb45811976f4b01597a4147049b"
+rev = "0b21456aaf97b0549dc1eeceab004754d028fd63"
 
 [workspace.dependencies.soroban-spec-rust]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "31e4df3e6ab3ffb45811976f4b01597a4147049b"
+rev = "0b21456aaf97b0549dc1eeceab004754d028fd63"
 
 [workspace.dependencies.soroban-sdk]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "31e4df3e6ab3ffb45811976f4b01597a4147049b"
+rev = "0b21456aaf97b0549dc1eeceab004754d028fd63"
 
 [workspace.dependencies.soroban-token-sdk]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "31e4df3e6ab3ffb45811976f4b01597a4147049b"
+rev = "0b21456aaf97b0549dc1eeceab004754d028fd63"
 
 [workspace.dependencies.stellar-asset-spec]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "31e4df3e6ab3ffb45811976f4b01597a4147049b"
+rev = "0b21456aaf97b0549dc1eeceab004754d028fd63"
 
 [workspace.dependencies.soroban-ledger-snapshot]
 version = "30.0.0"
 git = "https://github.com/stellar/rs-soroban-sdk"
-rev = "31e4df3e6ab3ffb45811976f4b01597a4147049b"
+rev = "0b21456aaf97b0549dc1eeceab004754d028fd63"
 
 # Dependencies from the rs-stellar-rpc-client repo:
 [workspace.dependencies.soroban-rpc]
