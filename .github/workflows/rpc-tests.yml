@@ -31,10 +31,12 @@ jobs:
     env:
       TEST_THREADS: ${{ contains(matrix.sys, 'macos') && '2' || '4' }} # macOS has limited resources
     steps:
+      # Protocol 30 is not yet in a quickstart release, so run the image built
+      # by stellar/quickstart#1001, which adds the protocol 30 config settings.
       - uses: stellar/quickstart@main
         with:
-          tag: latest
-          protocol_version: 28
+          tag: pr1001-nightly-p30
+          protocol_version: 30
       - uses: actions/checkout@v7
       - uses: stellar/actions/rust-cache@main
       - run: rustup update

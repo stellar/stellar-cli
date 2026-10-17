@@ -8,6 +8,7 @@ use clap::Parser;
 use soroban_spec_rust::ToFormattedString;
 use soroban_spec_tools::contract;
 use soroban_spec_tools::contract::Spec;
+use soroban_spec_tools::sanitize;
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
@@ -41,8 +42,8 @@ pub enum Error {
     NoInterfacePresent(),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
-    #[error(transparent)]
-    Generate(#[from] soroban_spec_rust::GenerateError),
+    #[error("{0}")]
+    Generate(String),
 }
 
 impl Cmd {
@@ -50,7 +51,7 @@ impl Cmd {
         let print = Print::new(global_args.quiet);
         let Fetched { contract, .. } = fetch(&self.common, &print).await?;
 
-        let (base64, spec) = match contract {
+        let (base64, spec, sdk_major_version) = match contract {
             shared::Contract::Wasm { wasm_bytes } => {
                 let spec = Spec::new(&wasm_bytes)?;
 
@@ -58,10 +59,12 @@ impl Cmd {
                     return Err(NoInterfacePresent());
                 }
 
-                (spec.spec_base64.unwrap(), spec.spec)
+                let sdk_major_version = soroban_spec_rust::sdk_major_version_from_meta(&spec.meta);
+                (spec.spec_base64.unwrap(), spec.spec, sdk_major_version)
             }
             shared::Contract::StellarAssetContract => {
-                Spec::spec_to_base64(stellar_asset_spec::xdr())?
+                let (base64, spec) = Spec::spec_to_base64(&stellar_asset_spec::xdr())?;
+                (base64, spec, None)
             }
         };
 
@@ -74,8 +77,12 @@ impl Cmd {
             // rejects non-identifier bytes. If a future revision starts
             // emitting spec strings as `Literal::string` or rustdocs, this
             // path becomes a terminal-escape-injection vector and must be
-            // sanitized before printing.
-            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec)?
+            // sanitized before printing. Names are reduced before they reach
+            // `format_ident!`, and reduce errors embed the raw names, so the
+            // error is sanitized before it is printed, as the spec is
+            // untrusted input.
+            InfoOutput::Rust => soroban_spec_rust::generate_without_file(&spec, sdk_major_version)
+                .map_err(|e| Error::Generate(sanitize(&e.to_string())))?
                 .to_formatted_string()
                 .expect("Unexpected spec format error"),
         };

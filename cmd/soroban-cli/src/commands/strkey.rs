@@ -59,8 +59,7 @@ fn decode_arg(input: &str, opts: &RunOpts) -> Result<(), decode::Error> {
     let json = if let Ok(k) = Strkey::from_str(input) {
         serde_json::to_string_pretty(&Decoded(&k)).unwrap()
     } else {
-        let pk = ed25519::PrivateKey::from_str(input)
-            .map_err(|e| decode::Error::Decode(input.to_string(), e))?;
+        let pk = ed25519::PrivateKey::from_str(input).map_err(decode::Error::Decode)?;
         if !opts.quiet {
             warn_private_key();
         }

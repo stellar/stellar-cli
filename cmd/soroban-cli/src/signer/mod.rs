@@ -144,6 +144,11 @@ pub async fn sign_soroban_authorizations(
                     ),
                 });
             }
+            ScAddress::MuxedContract(_) => {
+                return Err(Error::MissingSignerForAddress {
+                    address: address.to_string(),
+                });
+            }
         };
 
         // Auth entries should not request a signature from the tx source account via the `Address` credential type
