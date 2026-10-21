@@ -222,6 +222,16 @@ fn run_git(source_root: &Path, args: &[&str]) -> Result<Option<Vec<u8>>, Error> 
     })
 }
 
+/// Whether `source_root` is inside a git work tree. Verifiable builds use this to
+/// warn when cleanliness can't be verified — `ensure_clean_tree` is a no-op for a
+/// non-git source.
+pub(crate) fn is_git_repo(source_root: &Path) -> bool {
+    matches!(
+        run_git(source_root, &["rev-parse", "--is-inside-work-tree"]),
+        Ok(Some(_))
+    )
+}
+
 /// The set of tracked files under `source_root`, as paths relative to it.
 /// `--recurse-submodules` descends into initialized submodules (whose working
 /// files the walker also archives, but which `ls-files` would otherwise report
@@ -522,21 +532,21 @@ fn gzip(bytes: &[u8]) -> Result<Vec<u8>, Error> {
     })
 }
 
+/// Decompress gzip and unpack the tar into `dest`. Entries are `source/…`, so
+/// they land at `<dest>/source/…`.
+pub(crate) fn unpack_targz(bytes: &[u8], dest: &Path) -> Result<(), Error> {
+    let dec = flate2::read::GzDecoder::new(bytes);
+    tar::Archive::new(dec)
+        .unpack(dest)
+        .map_err(Error::ArchiveExtract)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[cfg(unix)]
     use crate::config::locator::{enforce_hardened_tree, FileMode};
     use sha2::{Digest, Sha256};
-
-    /// Decompress gzip and unpack the tar into `dest`. Entries are `source/…`,
-    /// so they land at `<dest>/source/…`.
-    fn unpack_targz(bytes: &[u8], dest: &Path) -> Result<(), Error> {
-        let dec = flate2::read::GzDecoder::new(bytes);
-        tar::Archive::new(dec)
-            .unpack(dest)
-            .map_err(Error::ArchiveExtract)
-    }
 
     #[test]
     fn is_warned_matches_names_and_dotted_suffixes() {
