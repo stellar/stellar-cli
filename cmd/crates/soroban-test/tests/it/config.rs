@@ -479,6 +479,7 @@ fn set_default_identity() {
 
     sandbox
         .new_assert_cmd("env")
+        .arg("--reveal")
         .env_remove("STELLAR_ACCOUNT")
         .assert()
         .stdout(predicate::str::contains("STELLAR_ACCOUNT=alice"))
