@@ -1324,22 +1324,26 @@ impl Spec {
                         ..
                     }) => {
                         if depth > 1 {
-                            match &type_[0] {
-                                ScType::Vec(type_vec) => {
-                                    let element_type = type_vec.element_type.clone();
-                                    if let ScType::Udt(udt_type) = *element_type {
-                                        return Some(udt_type.name.to_utf8_string_lossy());
+                            if let Some(first_type) = type_.first() {
+                                match first_type {
+                                    ScType::Vec(type_vec) => {
+                                        let element_type = type_vec.element_type.clone();
+                                        if let ScType::Udt(udt_type) = *element_type {
+                                            return Some(udt_type.name.to_utf8_string_lossy());
+                                        }
+                                    }
+                                    _ => {
+                                        return Some(format!(
+                                            "{}(ScSpecTypeDef::{})",
+                                            name.to_utf8_string_lossy(),
+                                            first_type.name()
+                                        ))
                                     }
                                 }
-                                _ => {
-                                    return Some(format!(
-                                        "{}(ScSpecTypeDef::{})",
-                                        name.to_utf8_string_lossy(),
-                                        type_[0].name()
-                                    ))
-                                }
+                                format!("{}({})", name.to_utf8_string_lossy(), first_type.name())
+                            } else {
+                                format!("{}()", name.to_utf8_string_lossy())
                             }
-                            format!("{}({})", name.to_utf8_string_lossy(), type_[0].name())
                         } else {
                             format!(
                                 "{}({})",
