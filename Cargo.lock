@@ -5532,8 +5532,9 @@ version = "30.0.0"
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a506854fecebeb5e8f76ffa176da14976e8cdfd5bf2b0e2751b538ffbbad901d"
 dependencies = [
  "serde",
  "serde_json",
@@ -5545,8 +5546,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-meta"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19436c4ea582edf3872e8b0bbfd6aa10dac2f8a0fbe38d3f257b5ab31b78f605"
 dependencies = [
  "stellar-xdr",
  "thiserror 1.0.69",
@@ -5555,8 +5557,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2bca25dc9f383fc39b7f9e5fd0959fd36e1169c79c068ae68355ae3eef64d87"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -5581,8 +5584,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb5e96693af1b38c0402aeae91313f315986a259cb16392362b78f18cb863ce1"
 dependencies = [
  "darling 0.20.11",
  "heck 0.5.0",
@@ -5600,8 +5604,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b301fc1006c34f9d713960c5fd9d74490824ef3aa4b8eca27e780509e8324c5"
 dependencies = [
  "base64 0.22.1",
  "stellar-xdr",
@@ -5611,8 +5616,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d01ab7a00893da249a4eb9e7be4dcd72aa722d51b98582391a3404542f50de63"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -5703,16 +5709,18 @@ dependencies = [
 
 [[package]]
 name = "soroban-token-sdk"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bce1b09532e94f56492e2a0033de786d85e4fdccf6e53cb7befb3d8f45c0e9f"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "soroban-token-spec"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21e1fb62f5fe48b5f8d74580ac9a0baa528f2c8ea453efde1e37234772a37f34"
 dependencies = [
  "soroban-sdk",
  "soroban-spec",
@@ -5778,8 +5786,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stellar-asset-spec"
-version = "30.0.0"
-source = "git+https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63#0b21456aaf97b0549dc1eeceab004754d028fd63"
+version = "30.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffa0d78cdd29366ea91e62c0cccc2a52b60bad376bec0463bf3116f78686684d"
 dependencies = [
  "soroban-sdk",
  "soroban-spec",

@@ -231,12 +231,6 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = [
   # Only used by the unpublished doc-gen crate, temporarily until PR is merged: https://github.com/ConnorGray/clap-markdown/pull/48
   "https://github.com/ConnorGray/clap-markdown?rev=42956b342cef3325d9060fc43995d595e7c8aa66",
-
-  # Temporary pins, remove once released:
-  # rs-soroban-sdk with stellar/rs-soroban-sdk#2139, which names user-defined
-  # types in contract specs by their fully qualified path and reduces the names
-  # in the token and asset specs, and uses the soroban-env 30.0.0 release.
-  "https://github.com/stellar/rs-soroban-sdk?rev=0b21456aaf97b0549dc1eeceab004754d028fd63",
 ]
 
 [sources.allow-org]
