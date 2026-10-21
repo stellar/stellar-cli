@@ -4,8 +4,8 @@ use super::args::Args;
 use crate::{
     commands::config::{self, locator},
     xdr::{
-        AccountId, AlphaNum12, AlphaNum4, AssetCode, LedgerKey, LedgerKeyTrustLine, MuxedAccount,
-        PublicKey, TrustLineAsset, Uint256,
+        AccountId, AlphaNum12, AlphaNum4, AssetCode, LedgerKey, LedgerKeyTrustLine, PublicKey,
+        TrustLineAsset, Uint256,
     },
 };
 use clap::Parser;
@@ -54,7 +54,7 @@ impl Cmd {
     }
 
     fn insert_asset_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        let acc = self.muxed_account(&self.account)?;
+        let acc = super::args::resolve_account(&self.args.locator, &self.account, self.hd_path)?;
         for asset in &self.asset {
             let asset = if asset.contains(':') {
                 let mut parts = asset.split(':');
@@ -93,13 +93,5 @@ impl Cmd {
             ledger_keys.push(key);
         }
         Ok(())
-    }
-
-    fn muxed_account(&self, account: &str) -> Result<MuxedAccount, Error> {
-        Ok(self
-            .args
-            .locator
-            .read_key(account)?
-            .muxed_account(self.hd_path)?)
     }
 }

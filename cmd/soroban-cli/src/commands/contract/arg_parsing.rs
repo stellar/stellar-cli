@@ -89,14 +89,21 @@ pub enum Error {
 
 pub type HostFunctionParameters = (String, Spec, InvokeContractArgs, Vec<Signer>);
 
-fn running_cmd() -> String {
-    let mut args: Vec<String> = env::args().collect();
+fn running_cmd(subcommand: &str) -> String {
+    command_prefix(env::args().next(), subcommand)
+}
 
-    if let Some(pos) = args.iter().position(|arg| arg == "--") {
-        args.truncate(pos);
-    }
-
-    format!("{} --", args.join(" "))
+/// Build the program name clap renders into the `Usage:` line: the running binary
+/// plus the fixed `contract invoke`/`contract deploy` path and `[OPTIONS] --`. The
+/// caller supplies the subcommand, so no user argv token reaches the line — closing
+/// the leak (help and usage errors go to stdout, scrollback, CI logs, and issue
+/// pastes) by construction. Classifying argv was unwinnable across clap's `--flag
+/// value`, `--flag=value`, `-sVALUE`, `-s=VALUE`, and stacked `-vsVALUE` forms, and
+/// reconstructing the path from argv mis-renders when global flags (`--quiet`,
+/// `--config-dir`, …) precede the subcommand.
+fn command_prefix(program: Option<String>, subcommand: &str) -> String {
+    let program = program.unwrap_or_else(|| "stellar".to_string());
+    format!("{program} {subcommand} [OPTIONS] --")
 }
 
 pub fn build_host_function_parameters(
@@ -195,7 +202,14 @@ fn build_host_function_parameters_with_filter(
 }
 
 fn build_clap_command(spec: &Spec, filter_constructor: bool) -> Result<clap::Command, Error> {
-    let mut cmd = clap::Command::new(running_cmd())
+    // `filter_constructor` is set only by `contract invoke`; the constructor path is
+    // `contract deploy ... -- <constructor-args>`.
+    let subcommand = if filter_constructor {
+        "contract invoke"
+    } else {
+        "contract deploy"
+    };
+    let mut cmd = clap::Command::new(running_cmd(subcommand))
         .no_binary_name(true)
         .term_width(300)
         .max_term_width(300);
@@ -979,6 +993,37 @@ fn resolve_aliases_in_union(
 mod tests {
     use super::*;
     use stellar_xdr::{ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeOption, ScSpecTypeVec};
+
+    #[test]
+    fn command_prefix_renders_program_and_subcommand() {
+        let cmd = command_prefix(Some("stellar".to_string()), "contract invoke");
+
+        assert_eq!(cmd, "stellar contract invoke [OPTIONS] --");
+    }
+
+    #[test]
+    fn command_prefix_renders_the_deploy_path() {
+        let cmd = command_prefix(Some("stellar".to_string()), "contract deploy");
+
+        assert_eq!(cmd, "stellar contract deploy [OPTIONS] --");
+    }
+
+    #[test]
+    fn command_prefix_preserves_the_invoking_binary_name() {
+        let cmd = command_prefix(
+            Some("/usr/local/bin/soroban".to_string()),
+            "contract invoke",
+        );
+
+        assert_eq!(cmd, "/usr/local/bin/soroban contract invoke [OPTIONS] --");
+    }
+
+    #[test]
+    fn command_prefix_falls_back_when_program_name_is_missing() {
+        let cmd = command_prefix(None, "contract invoke");
+
+        assert_eq!(cmd, "stellar contract invoke [OPTIONS] --");
+    }
 
     #[test]
     fn test_get_type_name_primitives() {

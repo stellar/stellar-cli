@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use super::args::Args;
 use crate::{
     commands::config::{self, locator},
-    xdr::{LedgerKey, LedgerKeyAccount, MuxedAccount},
+    xdr::{LedgerKey, LedgerKeyAccount},
 };
 use clap::Parser;
 
@@ -47,7 +47,7 @@ impl Cmd {
     }
 
     fn insert_account_keys(&self, ledger_keys: &mut Vec<LedgerKey>) -> Result<(), Error> {
-        let acc = self.muxed_account(&self.account)?;
+        let acc = super::args::resolve_account(&self.args.locator, &self.account, self.hd_path)?;
         let key = LedgerKey::Account(LedgerKeyAccount {
             account_id: acc.account_id(),
         });
@@ -55,13 +55,5 @@ impl Cmd {
         ledger_keys.push(key);
 
         Ok(())
-    }
-
-    fn muxed_account(&self, account: &str) -> Result<MuxedAccount, Error> {
-        Ok(self
-            .args
-            .locator
-            .read_key(account)?
-            .muxed_account(self.hd_path)?)
     }
 }
