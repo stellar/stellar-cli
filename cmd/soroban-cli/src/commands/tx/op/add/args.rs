@@ -8,7 +8,8 @@ pub struct Args {
     #[arg(
         long,
         visible_alias = "op-source",
-        env = "STELLAR_OPERATION_SOURCE_ACCOUNT"
+        env = "STELLAR_OPERATION_SOURCE_ACCOUNT",
+        hide_env_values = true
     )]
     pub operation_source_account: Option<address::UnresolvedMuxedAccount>,
     /// Base-64 transaction envelope XDR or file containing XDR to decode, or stdin if empty

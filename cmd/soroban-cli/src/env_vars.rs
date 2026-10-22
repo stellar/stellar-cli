@@ -31,7 +31,6 @@ pub fn unprefixed() -> Vec<&'static str> {
 
 /// Unprefixed names of env vars that are safe to display in plain text.
 const VISIBLE: &[&str] = &[
-    "ACCOUNT",
     "AUTH_MODE",
     "CONFIG_HOME",
     "CONTAINER_ENGINE",
@@ -44,7 +43,6 @@ const VISIBLE: &[&str] = &[
     "NETWORK_PASSPHRASE",
     "NO_CACHE",
     "NO_UPDATE_CHECK",
-    "OPERATION_SOURCE_ACCOUNT",
     "RESOURCE_FEE",
     "SEND",
     "SIGN_WITH_LAB",
@@ -114,6 +112,32 @@ mod tests {
                  add it so the display allow list keeps it concealed by default"
             );
         }
+    }
+
+    #[test]
+    fn concealed_env_vars_match_expected_set() {
+        let mut concealed = unprefixed()
+            .into_iter()
+            .filter(|name| is_concealed(name))
+            .collect::<Vec<_>>();
+        concealed.sort_unstable();
+
+        let mut expected = vec![
+            "ACCOUNT",
+            "ARCHIVE_URL",
+            "OPERATION_SOURCE_ACCOUNT",
+            "RPC_HEADERS",
+            "RPC_URL",
+            "SECRET_KEY",
+            "SIGN_WITH_KEY",
+        ];
+        expected.sort_unstable();
+
+        assert_eq!(
+            concealed, expected,
+            "the set of concealed env vars changed; moving a var into VISIBLE exposes its \
+             value in `stellar env` output, so update this expectation deliberately"
+        );
     }
 
     #[test]

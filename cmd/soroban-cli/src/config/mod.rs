@@ -63,6 +63,7 @@ pub struct Args {
         short = 's',
         visible_alias = "source",
         env = "STELLAR_ACCOUNT",
+        hide_env_values = true,
         help_heading = HEADING_TRANSACTION
     )]
     /// Account that where transaction originates from. Alias `source`.
