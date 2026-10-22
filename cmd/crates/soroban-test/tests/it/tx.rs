@@ -4,6 +4,9 @@ use soroban_test::{AssertExt, TestEnv};
 const TX_ENVELOPE: &str = "AAAAAgAAAAAnEWb4nxMsQhdnS16MqBxwItF3X/JNRkfxu8eyEQyfegAAAGQAAAAAAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAABAAAAABk++lrW4HlZwaWwYdYvJPCil1ibyI/VTH6WKda2sOC+AAAAAAAAAAAAAABkAAAAAAAAAAA=";
 const SECRET_KEY: &str = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
 
+// Fee-bump transaction envelope (regression test for #2769).
+const FEE_BUMP_ENVELOPE: &str = "AAAABQAAAAABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAACcQAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGQAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
 // `tx sign` only mixes the network passphrase into the transaction hash, so it
 // must not require an RPC URL (regression test for #2455).
 #[tokio::test]
@@ -38,6 +41,28 @@ async fn tx_hash_requires_only_network_passphrase() {
         .args([
             "hash",
             TX_ENVELOPE,
+            "--network-passphrase",
+            "specified manually",
+        ])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    let hash = output.trim();
+    assert_eq!(hash.len(), 64, "expected a 32-byte hex hash, got: {hash}");
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+}
+
+// `tx hash` must also support fee-bump transaction envelopes (regression test for #2769).
+#[tokio::test]
+async fn tx_hash_supports_fee_bump_transaction() {
+    let sandbox = &TestEnv::new();
+
+    let output = sandbox
+        .new_assert_cmd("tx")
+        .args([
+            "hash",
+            FEE_BUMP_ENVELOPE,
             "--network-passphrase",
             "specified manually",
         ])
