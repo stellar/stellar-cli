@@ -424,6 +424,12 @@ impl Spec {
         strukt: &ScSpecUdtStructV0,
         array: &[Value],
     ) -> Result<ScVal, Error> {
+        if array.len() != strukt.fields.len() {
+            return Err(Error::InvalidUdtValue {
+                name: sanitize(&strukt.name.to_utf8_string_lossy()),
+                value: sanitize(&Value::Array(array.to_vec()).to_string()),
+            });
+        }
         let items = strukt
             .fields
             .to_vec()
@@ -2683,5 +2689,50 @@ mod tests {
         let spec = Spec::new(&[]);
         let err = spec.find_function("evil\x1b[2J").unwrap_err();
         crate::test_utils::assert_no_control_chars(&format!("{err}"));
+    }
+
+    #[test]
+    fn tuple_struct_array_arg_length_mismatch_errors() {
+        // Regression for https://github.com/stellar/stellar-cli/issues/2748:
+        // A tuple struct argument passed as an array must reject wrong arity (both
+        // too many and too few elements) instead of silently dropping extra fields
+        // or passing incomplete vectors into the contract.
+        let spec = get_custom_types_spec();
+        let type_ = &spec.find_function("tuple_strukt").unwrap().inputs[0].type_;
+
+        // Correct call with 2 elements succeeds
+        let valid = spec.from_string(r#"[{"a": 42, "b": true, "c": "world"}, "First"]"#, type_);
+        assert!(
+            valid.is_ok(),
+            "expected valid tuple struct array: {valid:?}"
+        );
+
+        // Too many elements (3 instead of 2)
+        let too_many = spec
+            .from_string(
+                r#"[{"a": 42, "b": true, "c": "world"}, "First", "extra"]"#,
+                type_,
+            )
+            .unwrap_err();
+        assert!(
+            matches!(too_many, Error::InvalidUdtValue { .. }),
+            "expected InvalidUdtValue for too many elements, got {too_many:?}"
+        );
+
+        // Too few elements (1 instead of 2)
+        let too_few = spec
+            .from_string(r#"[{"a": 42, "b": true, "c": "world"}]"#, type_)
+            .unwrap_err();
+        assert!(
+            matches!(too_few, Error::InvalidUdtValue { .. }),
+            "expected InvalidUdtValue for too few elements, got {too_few:?}"
+        );
+
+        // Empty array (0 instead of 2)
+        let empty = spec.from_string(r#"[]"#, type_).unwrap_err();
+        assert!(
+            matches!(empty, Error::InvalidUdtValue { .. }),
+            "expected InvalidUdtValue for empty array, got {empty:?}"
+        );
     }
 }
