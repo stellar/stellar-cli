@@ -73,6 +73,7 @@ impl Cmd {
             self.auth_mode.to_rpc(),
         )
         .await?;
+        print.infoln(crate::tx::format_estimated_fee(tx.estimated_fee()));
         if let Some(fee_bump_fee) = tx.fee_bump_fee() {
             print.warnln(format!("The transaction fee of {} is too large and needs to be wrapped in a fee bump transaction.", print::format_number(fee_bump_fee, 7)));
         }

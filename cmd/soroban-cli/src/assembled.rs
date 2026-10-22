@@ -117,6 +117,11 @@ impl Assembled {
     }
 
     #[must_use]
+    pub fn estimated_fee(&self) -> i64 {
+        self.fee_bump_fee.unwrap_or_else(|| i64::from(self.txn.fee))
+    }
+
+    #[must_use]
     pub fn bump_seq_num(mut self) -> Self {
         self.txn.seq_num.0 += 1;
         self
@@ -808,5 +813,23 @@ mod tests {
         // 400 (inclusion) + 115 (simulated resource fee), NOT 500 + 115.
         assert_eq!(400 + 115, result.txn.fee);
         assert_eq!(None, result.fee_bump_fee);
+    }
+    #[test]
+    fn test_estimated_fee() {
+        let mut sim = simulation_response();
+        sim.min_resource_fee = 200;
+        let mut txn = single_contract_fn_transaction();
+        txn.fee = 100;
+        let assembled = assemble(&txn, sim, None, false).expect("assemble failed");
+        // Regular transaction fee: inclusion (100) + resource (200) = 300
+        assert_eq!(assembled.estimated_fee(), 300);
+
+        // When fee_bump_fee is present
+        let assembled_fee_bump = Assembled {
+            txn,
+            sim_res: simulation_response(),
+            fee_bump_fee: Some(5_000_000_000),
+        };
+        assert_eq!(assembled_fee_bump.estimated_fee(), 5_000_000_000);
     }
 }
