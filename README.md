@@ -10,6 +10,7 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 - [Cookbook](#cookbook)
 - [Install](#install)
 - [Autocomplete](#autocomplete)
+- [Security Considerations](#security-considerations)
 - [Latest Release](#latest-release)
 - [Upcoming Features](#upcoming-features)
 - [To Contribute](#to-contribute)
@@ -109,6 +110,24 @@ To enable autocomplete permanently, run:
 ```bash
 echo "source <(stellar completion --shell bash)" >> ~/.bashrc
 ```
+
+## Security Considerations
+
+### RPC Trust Boundary
+
+The Stellar CLI relies on the configured Stellar RPC endpoint (`--rpc-url` or configured network endpoint) to prepare, simulate, and submit transactions. Users and integrators should be aware of the following security model:
+
+- **Simulation and Authorization Entries**: When invoking smart contracts, the CLI relies on the RPC endpoint's `simulateTransaction` response to generate the contract footprint (read/write ledger keys) and assemble required authorization entries (`SorobanAuthorizationEntry`).
+- **Transaction Parameters and Lifetimes**: The CLI derives transaction parameters and ledger bounds—such as sequence numbers, network passphrases, and `signature_expiration_ledger`—from RPC queries (such as `getLatestLedger`).
+
+Because the CLI treats the RPC endpoint as a trusted component in this pipeline:
+- **Untrusted RPC Risks**: Directing the CLI to an untrusted or compromised RPC endpoint may result in malicious simulation results, crafted or overprivileged authorization entries, or manipulated transaction contents being presented for signing.
+- **Unencrypted Transport (Plain HTTP)**: Using plain `http://` RPC endpoints leaves communication vulnerable to eavesdropping and man-in-the-middle (MITM) tampering, allowing attackers on the network path to modify simulation outputs or transaction parameters.
+
+**Best Practices & Guidance**:
+1. **Always Use TLS/HTTPS**: Connect to RPC endpoints over `https://` with valid, trusted certificates to prevent transport-level tampering.
+2. **Use Controlled or Reputable Endpoints**: Point the CLI only to RPC nodes you control and operate, or to well-known, reputable infrastructure providers (e.g., official Stellar Development Foundation RPCs).
+3. **Verify Auth Entries Before Signing**: When signing transactions with high-privilege keys, inspect the authorization entries and transaction parameters reported by the CLI (or preview them with `--send=no` / `--build-only`) before signing.
 
 ## Latest Release
 
