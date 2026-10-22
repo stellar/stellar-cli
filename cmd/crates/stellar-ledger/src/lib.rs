@@ -281,7 +281,6 @@ fn handle_error(retcode: u16) -> Error {
     }
 }
 
-#[async_trait::async_trait]
 impl<T> Blob for LedgerSigner<T>
 where
     T: Exchange,
