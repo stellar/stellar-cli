@@ -23,7 +23,7 @@ use crate::{
     commands::{
         contract::arg_parsing::{
             build_host_function_parameters, build_host_function_parameters_by_position,
-            output_to_string,
+            format_output, OutputFormat,
         },
         global,
         tx::fetch::fee,
@@ -91,6 +91,10 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+
+    /// Format of the contract return value output
+    #[arg(long, value_enum, default_value_t)]
+    pub output: OutputFormat,
 }
 
 /// A request to invoke a named function with values mapped to the contract's
@@ -422,9 +426,9 @@ impl Cmd {
             // fall back to raw format since we only have the spec for the invoked contract.
             crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
-            let output = output_to_string(&spec, &return_value[0].xdr, &function)?
+            let output = format_output(&spec, &return_value[0].xdr, &function, self.output)?
                 .into_result()
-                .expect("output_to_string always returns a result");
+                .expect("format_output always returns a result");
             return Ok(TxnResult::Res(InvokeReceipt {
                 tx_hash: None,
                 output,
@@ -467,9 +471,9 @@ impl Cmd {
         // fall back to raw format since we only have the spec for the invoked contract.
         crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
-        let output = output_to_string(&spec, &return_value, &function)?
+        let output = format_output(&spec, &return_value, &function, self.output)?
             .into_result()
-            .expect("output_to_string always returns a result");
+            .expect("format_output always returns a result");
         Ok(TxnResult::Res(InvokeReceipt { tx_hash, output }))
     }
 }

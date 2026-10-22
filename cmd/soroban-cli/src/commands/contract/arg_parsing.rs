@@ -7,7 +7,7 @@ use crate::signer::{self, Signer};
 use crate::utils::XDR_DEPTH_LIMIT;
 use crate::xdr::{
     self, Hash, InvokeContractArgs, ReadXdr, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
-    ScVec,
+    ScVec, WriteXdr,
 };
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
@@ -574,6 +574,37 @@ Usage Notes:
 Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument, and --<arg_name>-xdr which accepts a base64-encoded XDR ScVal.
 Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"
     )
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
+pub enum OutputFormat {
+    /// Text output of the contract return value
+    #[default]
+    Text,
+    /// Base-64 encoded XDR representation of the contract return value
+    Xdr,
+    /// JSON representation of the contract return value
+    Json,
+}
+
+pub fn format_output(
+    spec: &Spec,
+    res: &ScVal,
+    function: &str,
+    output: OutputFormat,
+) -> Result<TxnResult<String>, Error> {
+    match output {
+        OutputFormat::Xdr => {
+            let xdr_str = res
+                .to_xdr_base64(xdr::Limits::depth(XDR_DEPTH_LIMIT))
+                .map_err(|e| Error::CannotPrintResult {
+                    result: res.clone(),
+                    error: soroban_spec_tools::Error::Xdr(e),
+                })?;
+            Ok(TxnResult::Res(xdr_str))
+        }
+        OutputFormat::Text | OutputFormat::Json => output_to_string(spec, res, function),
+    }
 }
 
 pub fn output_to_string(
@@ -2027,5 +2058,16 @@ mod tests {
             Err(e) => panic!("Expected CannotParseArg error, got Err: {e:?}"),
             Ok(_) => panic!("Expected CannotParseArg error, got Ok"),
         }
+    }
+    #[test]
+    fn test_format_output_xdr() {
+        use stellar_xdr::WriteXdr;
+        let spec_entries = function_spec("test_fn", &[]);
+        let spec = Spec(Some(spec_entries));
+        let val = ScVal::U32(123);
+        let expected_xdr = val.to_xdr_base64(xdr::Limits::none()).unwrap();
+
+        let res = format_output(&spec, &val, "test_fn", OutputFormat::Xdr).unwrap();
+        assert_eq!(res.into_result().unwrap(), expected_xdr);
     }
 }
