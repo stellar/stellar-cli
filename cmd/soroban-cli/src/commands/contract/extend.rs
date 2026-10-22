@@ -303,19 +303,113 @@ impl Cmd {
             return Ok(TxnResult::Res(extension));
         }
 
-        match (&changes[0], &changes[1]) {
-            (
-                LedgerEntryChange::State(_),
-                LedgerEntryChange::Updated(LedgerEntry {
-                    data:
-                        LedgerEntryData::Ttl(TtlEntry {
-                            live_until_ledger_seq,
-                            ..
-                        }),
-                    ..
-                }),
-            ) => Ok(TxnResult::Res(*live_until_ledger_seq)),
-            _ => Err(Error::LedgerEntryNotFound),
-        }
+        parse_changes(&changes)
+            .map(TxnResult::Res)
+            .ok_or(Error::LedgerEntryNotFound)
+    }
+}
+
+pub(crate) fn parse_changes(changes: &[LedgerEntryChange]) -> Option<u32> {
+    changes
+        .iter()
+        .filter_map(|change| match change {
+            LedgerEntryChange::Updated(LedgerEntry {
+                data:
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
+                        ..
+                    }),
+                ..
+            })
+            | LedgerEntryChange::Created(LedgerEntry {
+                data:
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
+                        ..
+                    }),
+                ..
+            })
+            | LedgerEntryChange::Restored(LedgerEntry {
+                data:
+                    LedgerEntryData::Ttl(TtlEntry {
+                        live_until_ledger_seq,
+                        ..
+                    }),
+                ..
+            }) => Some(*live_until_ledger_seq),
+            _ => None,
+        })
+        .max()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xdr::{Hash, LedgerEntry, LedgerEntryChange, LedgerEntryData, TtlEntry};
+
+    #[test]
+    fn test_parse_changes_two_changes_updated() {
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 12345,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![
+            LedgerEntryChange::State(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry.clone()),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+            LedgerEntryChange::Updated(LedgerEntry {
+                data: LedgerEntryData::Ttl(ttl_entry),
+                last_modified_ledger_seq: 0,
+                ext: crate::xdr::LedgerEntryExt::V0,
+            }),
+        ];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(12345));
+    }
+
+    #[test]
+    fn test_parse_changes_single_change_updated_avoids_panic() {
+        // Issue #2796: single-change resultMetaXdr caused an out of bounds panic with match (&changes[0], &changes[1])
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 54321,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![LedgerEntryChange::Updated(LedgerEntry {
+            data: LedgerEntryData::Ttl(ttl_entry),
+            last_modified_ledger_seq: 0,
+            ext: crate::xdr::LedgerEntryExt::V0,
+        })];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(54321));
+    }
+
+    #[test]
+    fn test_parse_changes_single_change_created() {
+        let ttl_entry = TtlEntry {
+            live_until_ledger_seq: 99999,
+            key_hash: Hash([0; 32]),
+        };
+
+        let changes = vec![LedgerEntryChange::Created(LedgerEntry {
+            data: LedgerEntryData::Ttl(ttl_entry),
+            last_modified_ledger_seq: 0,
+            ext: crate::xdr::LedgerEntryExt::V0,
+        })];
+
+        let result = parse_changes(&changes);
+        assert_eq!(result, Some(99999));
+    }
+
+    #[test]
+    fn test_parse_changes_empty() {
+        let changes = vec![];
+        let result = parse_changes(&changes);
+        assert_eq!(result, None);
     }
 }
