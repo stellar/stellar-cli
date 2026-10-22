@@ -115,6 +115,32 @@ mod tests {
     }
 
     #[test]
+    fn concealed_env_vars_match_expected_set() {
+        let mut concealed = unprefixed()
+            .into_iter()
+            .filter(|name| is_concealed(name))
+            .collect::<Vec<_>>();
+        concealed.sort_unstable();
+
+        let mut expected = vec![
+            "ACCOUNT",
+            "ARCHIVE_URL",
+            "OPERATION_SOURCE_ACCOUNT",
+            "RPC_HEADERS",
+            "RPC_URL",
+            "SECRET_KEY",
+            "SIGN_WITH_KEY",
+        ];
+        expected.sort_unstable();
+
+        assert_eq!(
+            concealed, expected,
+            "the set of concealed env vars changed; moving a var into VISIBLE exposes its \
+             value in `stellar env` output, so update this expectation deliberately"
+        );
+    }
+
+    #[test]
     fn concealed_env_vars_hide_their_values_in_help() {
         for (alias, hidden) in declared_env_args() {
             if is_concealed(&alias) {
