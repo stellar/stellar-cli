@@ -316,6 +316,71 @@ fn secure_store_rejects_env_secret_key() {
 }
 
 #[test]
+fn secure_store_one_off_hd_path_does_not_persist() {
+    // Regression for https://github.com/stellar/stellar-cli/issues/2777:
+    // A one-off `--hd-path N` query on an uncached secure-store identity must not
+    // permanently rewrite the identity's default hd_path or cache the wrong public key on disk.
+    let sandbox = TestEnv::default();
+    let seed_phrase = "aisle reflect depart add safe fury dress artist bronze abuse warrior clap inquiry ask mandate deputy view trade debate flip priority boy depart recipe";
+    let name = "alice-hd-test";
+
+    sandbox
+        .new_assert_cmd("keys")
+        .write_stdin(format!("{seed_phrase}\n"))
+        .args(["add", name, "--secure-store", "--overwrite"])
+        .assert()
+        .success();
+
+    let identity_path = sandbox
+        .config_dir()
+        .join("identity")
+        .join(format!("{name}.toml"));
+
+    // Strip the cached public_key so it behaves as an uncached legacy identity
+    let uncached_toml = format!("entry_name = \"secure_store:org.stellar.cli-{name}\"\n");
+    std::fs::write(&identity_path, &uncached_toml).unwrap();
+
+    // Query with a one-off --hd-path 3
+    let addr_hd3 = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", name, "--hd-path", "3"])
+        .assert()
+        .success()
+        .stdout_as_str();
+
+    // The identity file must NOT have been rewritten with hd_path = 3
+    let toml_after_hd3 = std::fs::read_to_string(&identity_path).unwrap();
+    assert!(
+        !toml_after_hd3.contains("hd_path = 3"),
+        "one-off --hd-path 3 must not be persisted to identity TOML, but was:\n{toml_after_hd3}"
+    );
+
+    // Subsequent query without --hd-path must return the default index-0 address
+    let addr_default = sandbox
+        .new_assert_cmd("keys")
+        .args(["address", name])
+        .assert()
+        .success()
+        .stdout_as_str();
+    assert_ne!(
+        addr_default.trim(),
+        addr_hd3.trim(),
+        "default address must differ from the index-3 address"
+    );
+
+    // After the default query, public_key should now be cached, but hd_path must still not be 3
+    let toml_after_default = std::fs::read_to_string(&identity_path).unwrap();
+    assert!(
+        toml_after_default.contains(&format!("public_key = \"{}\"", addr_default.trim())),
+        "default query should cache the index-0 public key, but file was:\n{toml_after_default}"
+    );
+    assert!(
+        !toml_after_default.contains("hd_path"),
+        "default query on identity without hd_path must not inject hd_path into TOML:\n{toml_after_default}"
+    );
+}
+
+#[test]
 fn use_env() {
     let sandbox = TestEnv::default();
 
