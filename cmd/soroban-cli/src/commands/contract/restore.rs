@@ -6,9 +6,8 @@ use crate::{
     xdr::{
         Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
         LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions, RestoreFootprintOp,
-        SequenceNumber, SorobanResources, SorobanTransactionData, SorobanTransactionDataExt,
-        Transaction, TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4,
-        TtlEntry, WriteXdr,
+        SorobanResources, SorobanTransactionData, SorobanTransactionDataExt, Transaction,
+        TransactionExt, TransactionMeta, TransactionMetaV3, TransactionMetaV4, TtlEntry, WriteXdr,
     },
 };
 use clap::Parser;
@@ -177,11 +176,12 @@ impl Cmd {
             .get_account(&source_account.clone().to_string())
             .await?;
         let sequence: i64 = account_details.seq_num.into();
+        let seq_num = crate::config::Args::calculate_next_sequence_number(sequence)?;
 
         let tx = Box::new(Transaction {
             source_account,
             fee: config.get_inclusion_fee()?,
-            seq_num: SequenceNumber(sequence + 1),
+            seq_num,
             cond: Preconditions::None,
             memo: Memo::None,
             operations: vec![Operation {

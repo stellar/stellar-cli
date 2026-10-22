@@ -50,6 +50,8 @@ pub enum Error {
     StellarStrkey(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     Address(#[from] address::Error),
+    #[error("account sequence number is at maximum (i64::MAX), no further transactions can be submitted from this account")]
+    SequenceNumberOverflow,
 }
 
 #[derive(Debug, clap::Args, Clone, Default)]
@@ -189,19 +191,25 @@ impl Args {
         Ok(self.inclusion_fee.or(self.fee).unwrap_or(100))
     }
 
+    pub fn calculate_next_sequence_number(current_seq: i64) -> Result<SequenceNumber, Error> {
+        let next_seq = current_seq
+            .checked_add(1)
+            .ok_or(Error::SequenceNumberOverflow)?;
+        Ok(SequenceNumber(next_seq))
+    }
+
     pub async fn next_sequence_number(
         &self,
         account: impl Into<xdr::AccountId>,
     ) -> Result<SequenceNumber, Error> {
         let network = self.get_network()?;
         let client = network.rpc_client()?;
-        Ok((client
+        let current_seq = client
             .get_account(&account.into().to_string())
             .await?
             .seq_num
-            .0
-            + 1)
-        .into())
+            .0;
+        Self::calculate_next_sequence_number(current_seq)
     }
 
     pub fn hd_path(&self) -> Option<u32> {
@@ -317,5 +325,30 @@ impl Config {
         let path = locator::ensure_directory(path.to_path_buf())?;
         locator::write_hardened_file(&path, toml_string.as_bytes())?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calculate_next_sequence_number() {
+        assert_eq!(
+            Args::calculate_next_sequence_number(0).unwrap(),
+            SequenceNumber(1)
+        );
+        assert_eq!(
+            Args::calculate_next_sequence_number(100).unwrap(),
+            SequenceNumber(101)
+        );
+        assert_eq!(
+            Args::calculate_next_sequence_number(i64::MAX - 1).unwrap(),
+            SequenceNumber(i64::MAX)
+        );
+        match Args::calculate_next_sequence_number(i64::MAX) {
+            Err(Error::SequenceNumberOverflow) => {}
+            other => panic!("Expected Error::SequenceNumberOverflow, got {other:?}"),
+        }
     }
 }

@@ -7,7 +7,7 @@ use crate::{
         tx::xdr::{tx_envelope_from_input, Error as XdrParsingError},
     },
     config::{self, locator, network},
-    xdr::{self, SequenceNumber, TransactionEnvelope, WriteXdr},
+    xdr::{self, TransactionEnvelope, WriteXdr},
 };
 
 #[derive(clap::Parser, Debug, Clone)]
@@ -51,8 +51,8 @@ impl Cmd {
             TransactionEnvelope::Tx(transaction_v1_envelope) => {
                 let tx_source_acct = &transaction_v1_envelope.tx.source_account;
                 let current_seq_num = self.current_seq_num(tx_source_acct).await?;
-                let next_seq_num = current_seq_num + 1;
-                transaction_v1_envelope.tx.seq_num = SequenceNumber(next_seq_num);
+                let next_seq_num = config::Args::calculate_next_sequence_number(current_seq_num)?;
+                transaction_v1_envelope.tx.seq_num = next_seq_num;
             }
             TransactionEnvelope::TxV0(_) | TransactionEnvelope::TxFeeBump(_) => {
                 return Err(Error::Unsupported);
