@@ -38,10 +38,14 @@ build-snapshot: typescript-bindings-fixtures
 build:
 	cargo build
 
-VERSION = $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "soroban-cli") | .version')
+TEST_WASM_PACKAGES = $(shell cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name | startswith("test_")) | .name')
 
+# Build the test wasms with the CLI, so that their specs are shaken and their
+# names reduced as they are for any contract built with `stellar contract build`.
 build-test-wasms:
-	SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 STELLAR_CLI_VERSION=$(VERSION) cargo build --package 'test_*' --profile test-wasms --target wasm32v1-none
+	for p in $(TEST_WASM_PACKAGES); do \
+		cargo run --bin stellar -- contract build --package $$p --profile test-wasms || exit 1; \
+	done
 
 build-test: build-test-wasms build-fixtures install
 

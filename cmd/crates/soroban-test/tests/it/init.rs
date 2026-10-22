@@ -16,7 +16,13 @@ fn init() {
     let cli_sdk_version = root_table["workspace"]["dependencies"]["soroban-sdk"]["version"]
         .as_str()
         .unwrap();
-    let cli_sdk_major: u32 = cli_sdk_version.split('.').next().unwrap().parse().unwrap();
+    let cli_sdk_major: u32 = cli_sdk_version
+        .trim_start_matches('=')
+        .split('.')
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
     let sdk_is_rc = cli_sdk_version.contains("rc");
 
     // Target version str of the initialized project
