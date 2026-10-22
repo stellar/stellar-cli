@@ -4,8 +4,10 @@ use crate::commands::txn_result::TxnResult;
 use crate::config::{self, sc_address, UnresolvedScAddress};
 use crate::print::Print;
 use crate::signer::{self, Signer};
+use crate::utils::XDR_DEPTH_LIMIT;
 use crate::xdr::{
-    self, Hash, InvokeContractArgs, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
+    self, Hash, InvokeContractArgs, ReadXdr, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal,
+    ScVec,
 };
 use clap::error::ErrorKind::DisplayHelp;
 use clap::value_parser;
@@ -316,8 +318,29 @@ fn parse_single_argument(
         };
 
         parse_positional_value(input, &s, spec, config, signers, parsed_args, print)
-    } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
-        parsed_args.push(ScVal::Void);
+    } else if let Some(xdr_val) = matches_.get_one::<String>(&fmt_arg_xdr_name(&name)) {
+        let sc_val =
+            ScVal::from_xdr_base64(xdr_val, xdr::Limits::depth(XDR_DEPTH_LIMIT)).map_err(|e| {
+                Error::CannotParseArg {
+                    arg: name.clone(),
+                    error: soroban_spec_tools::Error::Xdr(e),
+                    expected_type: expected_type_name,
+                    received_value: xdr_val.clone(),
+                    suggestion: "Ensure the argument is a valid base64-encoded XDR ScVal"
+                        .to_string(),
+                }
+            })?;
+        if matches!(
+            input.type_,
+            ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
+        ) {
+            if let ScVal::Address(addr) = &sc_val {
+                if let Some(signer) = resolve_signer(&addr.to_string(), config) {
+                    signers.push(signer);
+                }
+            }
+        }
+        parsed_args.push(sc_val);
         Ok(())
     } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
         parsed_args.push(parse_file_argument(
@@ -329,6 +352,9 @@ fn parse_single_argument(
             config,
             print,
         )?);
+        Ok(())
+    } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
+        parsed_args.push(ScVal::Void);
         Ok(())
     } else {
         Err(Error::MissingArgument {
@@ -476,11 +502,14 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
         let mut arg = clap::Arg::new(name);
         let file_arg_name = fmt_arg_file_name(name);
         let mut file_arg = clap::Arg::new(&file_arg_name);
+        let xdr_arg_name = fmt_arg_xdr_name(name);
+        let mut xdr_arg = clap::Arg::new(&xdr_arg_name);
         arg = arg
             .long(name)
             .alias(name.to_kebab_case())
             .num_args(1)
             .value_parser(clap::builder::NonEmptyStringValueParser::new())
+            .conflicts_with(&xdr_arg_name)
             .long_help(
                 spec.doc(name, type_)?
                     .map(|d| -> &'static str { Box::leak(sanitize(d).into_boxed_str()) }),
@@ -492,7 +521,17 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .num_args(1)
             .hide(true)
             .value_parser(value_parser!(PathBuf))
-            .conflicts_with(name);
+            .conflicts_with(name)
+            .conflicts_with(&xdr_arg_name);
+
+        xdr_arg = xdr_arg
+            .long(&xdr_arg_name)
+            .alias(xdr_arg_name.to_kebab_case())
+            .num_args(1)
+            .hide(true)
+            .value_parser(clap::builder::NonEmptyStringValueParser::new())
+            .conflicts_with(name)
+            .conflicts_with(&file_arg_name);
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
             let value_name: &'static str = Box::leak(sanitize(&value_name).into_boxed_str());
@@ -515,6 +554,7 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
 
         cmd = cmd.arg(arg);
         cmd = cmd.arg(file_arg);
+        cmd = cmd.arg(xdr_arg);
     }
     Ok(cmd)
 }
@@ -523,11 +563,15 @@ fn fmt_arg_file_name(name: &str) -> String {
     format!("{name}-file-path")
 }
 
+fn fmt_arg_xdr_name(name: &str) -> String {
+    format!("{name}-xdr")
+}
+
 fn arg_file_help(docs: &str) -> String {
     format!(
         r"{docs}
 Usage Notes:
-Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument.
+Each arg has a corresponding --<arg_name>-file-path which is a path to a file containing the corresponding JSON argument, and --<arg_name>-xdr which accepts a base64-encoded XDR ScVal.
 Note: The only types which aren't JSON are Bytes and BytesN, which are raw bytes"
     )
 }
@@ -1917,5 +1961,71 @@ mod tests {
             bad_chars.is_empty(),
             "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
         );
+    }
+    #[test]
+    fn invoke_with_xdr_arg_succeeds() {
+        use stellar_xdr::WriteXdr;
+        let spec_entries = function_spec(
+            "test_fn",
+            &[
+                ("num", ScSpecTypeDef::U32),
+                ("greeting", ScSpecTypeDef::Symbol),
+            ],
+        );
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+
+        let num_xdr = ScVal::U32(99).to_xdr_base64(xdr::Limits::none()).unwrap();
+        let greeting_val: ScVal = ScVal::Symbol(xdr::ScSymbol("hi".try_into().unwrap()));
+        let greeting_xdr = greeting_val.to_xdr_base64(xdr::Limits::none()).unwrap();
+
+        let slop: Vec<OsString> = vec![
+            "test_fn".into(),
+            "--num-xdr".into(),
+            num_xdr.into(),
+            "--greeting-xdr".into(),
+            greeting_xdr.into(),
+        ];
+
+        let (_, _, invoke_args, _) = build_host_function_parameters(
+            &contract_id,
+            &slop,
+            &spec_entries,
+            &config,
+            &Print::new(false),
+        )
+        .unwrap();
+
+        assert_eq!(invoke_args.args[0], ScVal::U32(99));
+        assert_eq!(invoke_args.args[1], greeting_val);
+    }
+
+    #[test]
+    fn invoke_with_invalid_xdr_arg_returns_error() {
+        let spec_entries = function_spec("test_fn", &[("num", ScSpecTypeDef::U32)]);
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+
+        let slop: Vec<OsString> = vec![
+            "test_fn".into(),
+            "--num-xdr".into(),
+            "not-valid-base64-xdr".into(),
+        ];
+
+        let result = build_host_function_parameters(
+            &contract_id,
+            &slop,
+            &spec_entries,
+            &config,
+            &Print::new(false),
+        );
+
+        match result {
+            Err(Error::CannotParseArg { arg, .. }) => {
+                assert_eq!(arg, "num");
+            }
+            Err(e) => panic!("Expected CannotParseArg error, got Err: {e:?}"),
+            Ok(_) => panic!("Expected CannotParseArg error, got Ok"),
+        }
     }
 }
