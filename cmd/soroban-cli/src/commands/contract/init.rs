@@ -7,6 +7,7 @@ use std::{
 };
 
 use clap::Parser;
+use heck::ToUpperCamelCase;
 use rust_embed::RustEmbed;
 
 use crate::{commands::global, config::address::ContractName, print};
@@ -143,6 +144,14 @@ impl Runner {
             if is_toml {
                 let new_content = file_contents.replace("%contract-template%", &self.args.name);
                 file_contents = new_content;
+            } else if item.as_ref().ends_with(".rs") {
+                let mut struct_name = self.args.name.to_upper_camel_case();
+                if struct_name.is_empty() {
+                    struct_name = "Contract".to_string();
+                } else if !struct_name.chars().next().unwrap().is_ascii_alphabetic() {
+                    struct_name = format!("Contract{struct_name}");
+                }
+                file_contents = file_contents.replace("%contract-struct-name%", &struct_name);
             }
 
             if exists {
@@ -180,6 +189,35 @@ mod tests {
     use super::*;
 
     const TEST_PROJECT_NAME: &str = "test-project";
+
+    #[test]
+    fn test_init_kebab_case_contract_struct_name() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("counter-project");
+        let runner = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                name: "counter".parse().unwrap(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner.run().unwrap();
+
+        assert_contract_struct_named(&project_dir, "counter", "Counter");
+
+        let runner2 = Runner {
+            args: Cmd {
+                project_path: project_dir.to_string_lossy().to_string(),
+                name: "my-custom-token".parse().unwrap(),
+                overwrite: false,
+            },
+            print: print::Print::new(false),
+        };
+        runner2.run().unwrap();
+
+        assert_contract_struct_named(&project_dir, "my-custom-token", "MyCustomToken");
+    }
 
     #[test]
     fn test_init() {
@@ -220,7 +258,39 @@ mod tests {
         assert_contract_cargo_file_is_well_formed(&project_dir, "contract2");
         assert_excluded_paths_do_not_exist(&project_dir);
 
+        assert_contract_struct_named(&project_dir, "hello_world", "HelloWorld");
+        assert_contract_struct_named(&project_dir, "contract2", "Contract2");
+
         temp_dir.close().unwrap();
+    }
+
+    fn assert_contract_struct_named(
+        project_dir: &Path,
+        contract_name: &str,
+        expected_struct: &str,
+    ) {
+        let contract_dir = project_dir.join("contracts").join(contract_name);
+        let lib_rs = read_to_string(contract_dir.join("src").join("lib.rs")).unwrap();
+        let test_rs = read_to_string(contract_dir.join("src").join("test.rs")).unwrap();
+
+        assert!(
+            lib_rs.contains(&format!("pub struct {expected_struct};")),
+            "expected lib.rs to declare 'pub struct {expected_struct};', but got:
+{lib_rs}"
+        );
+        assert!(
+            lib_rs.contains(&format!("impl {expected_struct} {{")),
+            "expected lib.rs to impl {expected_struct}"
+        );
+        assert!(
+            test_rs.contains(&format!("env.register({expected_struct}, ());")),
+            "expected test.rs to register {expected_struct}"
+        );
+        assert!(
+            test_rs.contains(&format!("{expected_struct}Client::new")),
+            "expected test.rs to use {expected_struct}Client, but got:
+{test_rs}"
+        );
     }
 
     // test helpers
