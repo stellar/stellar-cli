@@ -363,15 +363,31 @@ impl Args {
             // read to the wrong account.
             let effective = hd_path.or(*persisted_hd_path);
             let pk = secure_store::get_public_key(entry_name, effective)?;
-            let migrated = Key::Secret(Secret::SecureStore {
+
+            // Only persist the cached public key when the caller did not supply a
+            // different one-off hd_path override (or when the supplied override matches
+            // the persisted path). A one-off `--hd-path N` query must not permanently
+            // rewrite the identity's default hd_path or cache the wrong public key on disk.
+            let is_same_path = match (hd_path, *persisted_hd_path) {
+                (None, _) => true,
+                (Some(req), Some(persisted)) => req == persisted,
+                (Some(req), None) => req == 0,
+            };
+            if is_same_path {
+                let migrated = Key::Secret(Secret::SecureStore {
+                    entry_name: entry_name.clone(),
+                    public_key: Some(format!("{pk}")),
+                    hd_path: *persisted_hd_path,
+                });
+                // Best-effort write-back: if persistence fails we still return the
+                // freshly-derived value so the current call succeeds.
+                let _ = self.write_key(key_or_name, &migrated);
+            }
+            return Ok(Key::Secret(Secret::SecureStore {
                 entry_name: entry_name.clone(),
                 public_key: Some(format!("{pk}")),
                 hd_path: effective,
-            });
-            // Best-effort write-back: if persistence fails we still return the
-            // freshly-derived value so the current call succeeds.
-            let _ = self.write_key(key_or_name, &migrated);
-            return Ok(migrated);
+            }));
         }
         Ok(key)
     }
