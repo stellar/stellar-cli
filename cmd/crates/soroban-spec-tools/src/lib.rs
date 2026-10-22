@@ -88,6 +88,40 @@ impl TryInto<Spec> for &[u8] {
     }
 }
 
+fn is_numeric_type(t: &ScType) -> bool {
+    matches!(
+        t,
+        ScType::U32
+            | ScType::I32
+            | ScType::U64
+            | ScType::I64
+            | ScType::U128
+            | ScType::I128
+            | ScType::U256
+            | ScType::I256
+            | ScType::Timepoint
+            | ScType::Duration
+    )
+}
+
+fn strip_valid_number_separators(s: &str) -> Option<String> {
+    if !s.contains('_') {
+        return None;
+    }
+    let bytes = s.as_bytes();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b'_' {
+            if i == 0 || i + 1 >= bytes.len() {
+                return None;
+            }
+            if !bytes[i - 1].is_ascii_digit() || !bytes[i + 1].is_ascii_digit() {
+                return None;
+            }
+        }
+    }
+    Some(s.replace('_', ""))
+}
+
 impl Spec {
     pub fn new(entries: &[ScSpecEntry]) -> Self {
         Self(Some(entries.to_vec()))
@@ -268,6 +302,19 @@ impl Spec {
             let v = value_type.as_ref().clone();
             return self.from_string(s, &v);
         }
+
+        let cleaned_s;
+        let s = if is_numeric_type(t) {
+            if let Some(stripped) = strip_valid_number_separators(s) {
+                cleaned_s = stripped;
+                &cleaned_s
+            } else {
+                s
+            }
+        } else {
+            s
+        };
+
         // Parse as string and for special types assume Value::String
         serde_json::from_str(s)
             .map_or_else(
@@ -2683,5 +2730,65 @@ mod tests {
         let spec = Spec::new(&[]);
         let err = spec.find_function("evil\x1b[2J").unwrap_err();
         crate::test_utils::assert_no_control_chars(&format!("{err}"));
+    }
+
+    #[test]
+    fn test_numeric_separators_accepted() {
+        // Issue #2447: Rust-style underscore digit separators in numbers
+        use stellar_xdr::{Duration, TimePoint};
+
+        let v = from_string_primitive("100_0000000", &ScType::I128).unwrap();
+        assert_eq!(
+            v,
+            ScVal::I128(Int128Parts {
+                hi: 0,
+                lo: 1_000_000_000
+            })
+        );
+
+        let v = from_string_primitive("1_000", &ScType::U32).unwrap();
+        assert_eq!(v, ScVal::U32(1000));
+
+        let v = from_string_primitive("-50_000", &ScType::I64).unwrap();
+        assert_eq!(v, ScVal::I64(-50000));
+
+        let v = from_string_primitive("1_2_3_4_5", &ScType::U64).unwrap();
+        assert_eq!(v, ScVal::U64(12345));
+
+        let v = from_string_primitive("1_000_000", &ScType::Timepoint).unwrap();
+        assert_eq!(v, ScVal::Timepoint(TimePoint::from(1_000_000u64)));
+
+        let v = from_string_primitive("60_000", &ScType::Duration).unwrap();
+        assert_eq!(v, ScVal::Duration(Duration::from(60_000u64)));
+    }
+
+    #[test]
+    fn test_numeric_separators_with_option() {
+        let opt_type = ScType::Option(Box::new(ScSpecTypeOption {
+            value_type: Box::new(ScType::U32),
+        }));
+        let v = from_string_primitive("1_000", &opt_type).unwrap();
+        assert_eq!(v, ScVal::U32(1000));
+    }
+
+    #[test]
+    fn test_malformed_numeric_separators_rejected() {
+        assert!(from_string_primitive("_1000", &ScType::U32).is_err());
+        assert!(from_string_primitive("1000_", &ScType::U32).is_err());
+        assert!(from_string_primitive("1__000", &ScType::U32).is_err());
+        assert!(from_string_primitive("_100_000", &ScType::I128).is_err());
+        assert!(from_string_primitive("100_000_", &ScType::I128).is_err());
+    }
+
+    #[test]
+    fn test_non_numeric_separators_preserved() {
+        let v = from_string_primitive("hello_world", &ScType::Symbol).unwrap();
+        assert_eq!(
+            v,
+            ScVal::Symbol(ScSymbol("hello_world".try_into().unwrap()))
+        );
+
+        let v = from_string_primitive(r#""1_000""#, &ScType::String).unwrap();
+        assert_eq!(v, ScVal::String(ScString("1_000".try_into().unwrap())));
     }
 }
