@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::{self},
-    io::{stdin, Cursor, IsTerminal},
+    io::{stdin, Cursor, IsTerminal, Read},
     path::PathBuf,
     process::{self},
 };
@@ -41,6 +41,10 @@ pub enum Error {
 #[group(skip)]
 pub struct Cmd {}
 
+fn clean_xdr_input(raw: &str) -> String {
+    raw.chars().filter(|c| !c.is_ascii_whitespace()).collect()
+}
+
 impl Cmd {
     pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
@@ -48,9 +52,13 @@ impl Cmd {
             default_json()
         } else {
             let mut input = String::new();
-            stdin().read_line(&mut input)?;
-            let input = input.trim();
-            xdr_to_json::<stellar_xdr::TransactionEnvelope>(input)?
+            stdin().read_to_string(&mut input)?;
+            let input = clean_xdr_input(&input);
+            if input.is_empty() {
+                default_json()
+            } else {
+                xdr_to_json::<stellar_xdr::TransactionEnvelope>(&input)?
+            }
         };
 
         let (_temp_dir, path) = tmp_file(&json)?;
@@ -98,35 +106,33 @@ fn get_editor() -> Editor {
         .or_else(|_| env::var("VISUAL").map(|val| ("VISUAL", val)))
         .unwrap_or_else(|_| ("default", "vim".to_string()));
 
-    let parts: Vec<&str> = cmd.split_whitespace().collect();
-    let cmd = parts[0].to_string();
-    let args = &parts[1..]
-        .iter()
-        .map(|&s| s.to_string())
-        .collect::<Vec<String>>();
+    let parts = shlex::split(&cmd).unwrap_or_else(|| vec![cmd]);
 
     Editor {
+        cmd: parts[0].clone(),
         source: source.to_string(),
-        cmd,
-        args: args.clone(),
+        args: parts[1..].to_vec(),
     }
 }
 
 fn open_editor(print: &Print, editor: &Editor, path: &PathBuf) -> Result<(), Error> {
     print.infoln(format!(
-        "Opening editor with `{source}=\"{cmd}\"`...",
-        source = editor.source,
-        cmd = editor.cmd,
+        "Opening {} using {} ({})",
+        path.display(),
+        editor.cmd,
+        editor.source
     ));
 
-    let mut binding = process::Command::new(editor.cmd.clone());
-    let command = binding.args(editor.args.clone()).arg(path);
+    let mut command = process::Command::new(&editor.cmd);
+    command.args(&editor.args);
+    command.arg(path);
 
-    // Windows doesn't have devices like /dev/tty.
     #[cfg(unix)]
     {
-        use fs::File;
-        let tty = File::open("/dev/tty")?;
+        let tty = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open("/dev/tty")?;
         let tty_out = fs::OpenOptions::new().write(true).open("/dev/tty")?;
         let tty_err = fs::OpenOptions::new().write(true).open("/dev/tty")?;
 
@@ -233,5 +239,18 @@ mod tests {
         let dir_meta = fs::metadata(temp_dir.path()).expect("dir metadata failed");
         let dir_mode = dir_meta.permissions().mode() & 0o777;
         assert_eq!(dir_mode, 0o700, "tempdir permissions should be 0o700");
+    }
+
+    #[test]
+    fn clean_xdr_input_handles_wrapped_multiline() {
+        let single_line = "AAAAAgAAAACYBFySPwzWk0YGRnApY9uHkYcuA63OEUJfPCHS15r6LgAAAGQAS7YyAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAltWKzUF0DSf6FJTJjnjOMD4PvqdD4llwfRAPBJ8Q25AAAAAAAAAAAAAAABAAAAAAAAAAA=";
+        let wrapped = "AAAAAgAAAACYBFySPwzWk0YGRnApY9uHkYcuA63OEUJfPCHS15r6LgAAAGQAS7YyAAAAAwAAAAAA\r\nAAAAAAAAAQAAAAAAAAABAAAAAAltWKzUF0DSf6FJTJjnjOMD4PvqdD4llwfRAPBJ8Q25AAAAAAAA\r\nAAAAAAABAAAAAAAAAAA=\r\n";
+
+        let cleaned = clean_xdr_input(wrapped);
+        assert_eq!(cleaned, single_line);
+
+        // Verify that xdr_to_json successfully decodes the cleaned multiline input
+        let json_result = xdr_to_json::<stellar_xdr::TransactionEnvelope>(&cleaned);
+        assert!(json_result.is_ok());
     }
 }
