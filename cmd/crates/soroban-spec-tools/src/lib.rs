@@ -5,14 +5,14 @@ use std::str::FromStr;
 use itertools::Itertools;
 use serde_json::{json, Value};
 use stellar_xdr::{
-    AccountId, BytesM, ContractExecutable, ContractExecutableExternalRef, ContractId,
+    AccountId, BytesM, ContractExecutable, ContractExecutableExternalRef, ContractId, Duration,
     Error as XdrError, Hash, Int128Parts, Int256Parts, MuxedContract, MuxedEd25519Account,
     PublicKey, ScAddress, ScBytes, ScContractInstance, ScMap, ScMapEntry, ScNonceKey, ScSpecEntry,
     ScSpecEventV0, ScSpecFunctionV0, ScSpecTypeDef as ScType, ScSpecTypeMap, ScSpecTypeOption,
     ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt, ScSpecTypeVec, ScSpecUdtEnumV0,
     ScSpecUdtErrorEnumCaseV0, ScSpecUdtErrorEnumV0, ScSpecUdtStructV0, ScSpecUdtUnionCaseTupleV0,
     ScSpecUdtUnionCaseV0, ScSpecUdtUnionCaseVoidV0, ScSpecUdtUnionV0, ScString, ScSymbol, ScVal,
-    ScVec, StringM, UInt128Parts, UInt256Parts, Uint256, VecM,
+    ScVec, StringM, TimePoint, UInt128Parts, UInt256Parts, Uint256, VecM,
 };
 
 pub mod contract;
@@ -335,6 +335,8 @@ impl Spec {
                 | ScType::I64
                 | ScType::U32
                 | ScType::U64
+                | ScType::Timepoint
+                | ScType::Duration
                 | ScType::String
                 | ScType::Symbol
                 | ScType::Address
@@ -934,10 +936,36 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
             n.as_i64()
                 .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?,
         ),
-        (ScType::U64 | ScType::Timepoint | ScType::Duration, Value::Number(n)) => ScVal::U64(
+        (ScType::U64, Value::Number(n)) => ScVal::U64(
             n.as_u64()
                 .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?,
         ),
+        (ScType::Timepoint, Value::Number(n)) => ScVal::Timepoint(TimePoint(
+            n.as_u64()
+                .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?,
+        )),
+        (ScType::Duration, Value::Number(n)) => ScVal::Duration(Duration(
+            n.as_u64()
+                .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?,
+        )),
+        (ScType::U64, Value::String(s)) => {
+            let n: u64 = s
+                .parse()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            ScVal::U64(n)
+        }
+        (ScType::Timepoint, Value::String(s)) => {
+            let n: u64 = s
+                .parse()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            ScVal::Timepoint(TimePoint(n))
+        }
+        (ScType::Duration, Value::String(s)) => {
+            let n: u64 = s
+                .parse()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            ScVal::Duration(Duration(n))
+        }
 
         // Symbol parsing
         (ScType::Symbol, Value::String(s)) => ScVal::Symbol(ScSymbol(
@@ -1551,7 +1579,7 @@ impl Spec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stellar_xdr::{Duration, ScMap, ScSpecTypeBytesN, TimePoint};
+    use stellar_xdr::{Duration, ScMap, ScSpecTypeBytesN, ScSpecUdtStructFieldV0, TimePoint};
 
     const CUSTOM_TYPES_WASM: &[u8] =
         include_bytes!("../../../../target/wasm32v1-none/test-wasms/test_custom_types.wasm");
@@ -1913,6 +1941,82 @@ mod tests {
         let expected = ScVal::Duration(Duration::from(1_234_567u64));
         assert_eq!(parsed, expected);
         assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_timepoint_from_json() {
+        let spec = Spec::default();
+
+        // Bare JSON number
+        let val = serde_json::json!(1_760_501_234u64);
+        let parsed = spec.from_json(&val, &ScType::Timepoint).unwrap();
+        let expected = ScVal::Timepoint(TimePoint::from(1_760_501_234u64));
+        assert_eq!(parsed, expected);
+
+        // JSON string number
+        let val_str = serde_json::json!("1760501234");
+        let parsed_str = spec.from_json(&val_str, &ScType::Timepoint).unwrap();
+        assert_eq!(parsed_str, expected);
+    }
+
+    #[test]
+    fn test_duration_from_json() {
+        let spec = Spec::default();
+
+        // Bare JSON number
+        let val = serde_json::json!(1_234_567u64);
+        let parsed = spec.from_json(&val, &ScType::Duration).unwrap();
+        let expected = ScVal::Duration(Duration::from(1_234_567u64));
+        assert_eq!(parsed, expected);
+
+        // JSON string number
+        let val_str = serde_json::json!("1234567");
+        let parsed_str = spec.from_json(&val_str, &ScType::Duration).unwrap();
+        assert_eq!(parsed_str, expected);
+    }
+
+    #[test]
+    fn test_nested_timepoint_and_duration_in_struct() {
+        let spec = Spec::default();
+        let strukt = ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: "TimedAction".try_into().unwrap(),
+            fields: vec![
+                ScSpecUdtStructFieldV0 {
+                    doc: StringM::default(),
+                    name: "deadline".try_into().unwrap(),
+                    type_: ScType::Timepoint,
+                },
+                ScSpecUdtStructFieldV0 {
+                    doc: StringM::default(),
+                    name: "duration".try_into().unwrap(),
+                    type_: ScType::Duration,
+                },
+            ]
+            .try_into()
+            .unwrap(),
+        };
+
+        let json_val = serde_json::json!({
+            "deadline": 1_760_501_234u64,
+            "duration": 1_234_567u64,
+        });
+
+        if let Value::Object(map) = json_val {
+            let parsed = spec.parse_strukt(&strukt, &map).unwrap();
+            let ScVal::Map(Some(sc_map)) = parsed else {
+                panic!("expected ScVal::Map");
+            };
+            assert_eq!(sc_map.len(), 2);
+            assert_eq!(
+                sc_map[0].val,
+                ScVal::Timepoint(TimePoint::from(1_760_501_234u64))
+            );
+            assert_eq!(sc_map[1].val, ScVal::Duration(Duration::from(1_234_567u64)));
+        } else {
+            panic!("expected Object");
+        }
     }
 
     #[test]
