@@ -1285,7 +1285,12 @@ impl Spec {
             }
             ScType::BytesN(t) => Some(format!("{}_hex_bytes", t.n)),
             ScType::Udt(ScSpecTypeUdt { name }) => {
-                match self.find(&name.to_utf8_string_lossy()).ok()? {
+                let name_str = name.to_utf8_string_lossy();
+                // Cap recursion depth to prevent stack overflow on recursive types (issue #2445).
+                if depth > 1 {
+                    return Some(name_str);
+                }
+                match self.find(&name_str).ok()? {
                     ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 { fields, .. })
                         if fields
                             .first()
@@ -1298,8 +1303,8 @@ impl Spec {
                             .join(", ");
                         Some(format!("[{fields}]"))
                     }
-                    ScSpecEntry::UdtStructV0(strukt) => self.arg_value_udt(strukt, depth),
-                    ScSpecEntry::UdtUnionV0(union) => self.arg_value_union(union, depth),
+                    ScSpecEntry::UdtStructV0(strukt) => self.arg_value_udt(strukt, depth + 1),
+                    ScSpecEntry::UdtUnionV0(union) => self.arg_value_union(union, depth + 1),
                     ScSpecEntry::UdtEnumV0(enum_) => Some(arg_value_enum(enum_)),
                     ScSpecEntry::FunctionV0(_)
                     | ScSpecEntry::UdtErrorEnumV0(_)
@@ -2683,5 +2688,99 @@ mod tests {
         let spec = Spec::new(&[]);
         let err = spec.find_function("evil\x1b[2J").unwrap_err();
         crate::test_utils::assert_no_control_chars(&format!("{err}"));
+    }
+
+    #[test]
+    fn test_recursive_type_arg_value_name_does_not_stack_overflow() {
+        // Regression test for https://github.com/stellar/stellar-cli/issues/2445
+        // A recursive type (e.g. TreeNode -> Vec<TreeNode>) must not crash with stack overflow
+        // when computing arg_value_name.
+        let tree_node_struct = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: StringM::from_str("TreeNode").unwrap(),
+            fields: vec![
+                stellar_xdr::ScSpecUdtStructFieldV0 {
+                    doc: StringM::default(),
+                    name: StringM::from_str("value").unwrap(),
+                    type_: ScType::U32,
+                },
+                stellar_xdr::ScSpecUdtStructFieldV0 {
+                    doc: StringM::default(),
+                    name: StringM::from_str("children").unwrap(),
+                    type_: ScType::Vec(Box::new(stellar_xdr::ScSpecTypeVec {
+                        element_type: Box::new(ScType::Udt(stellar_xdr::ScSpecTypeUdt {
+                            name: StringM::from_str("TreeNode").unwrap(),
+                        })),
+                    })),
+                },
+            ]
+            .try_into()
+            .unwrap(),
+        });
+
+        let spec = Spec::new(&[tree_node_struct]);
+        let type_ = ScType::Udt(stellar_xdr::ScSpecTypeUdt {
+            name: StringM::from_str("TreeNode").unwrap(),
+        });
+
+        let value_name = spec.arg_value_name(&type_, 0);
+        assert!(value_name.is_some());
+        let vn = value_name.unwrap();
+        assert!(
+            vn.contains("TreeNode"),
+            "expected type to truncate recursion with type name, got {vn}"
+        );
+        assert!(vn.contains("value: u32"));
+        assert!(vn.contains("children: Array<TreeNode>"));
+
+        // Also verify that doc / example generation succeeds without crashing
+        let doc = spec.doc("tree", &type_);
+        assert!(doc.is_ok());
+    }
+
+    #[test]
+    fn test_mutually_recursive_types_arg_value_name() {
+        // Mutually recursive types (NodeA -> NodeB -> NodeA) must terminate without stack overflow.
+        let node_a = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: StringM::from_str("NodeA").unwrap(),
+            fields: vec![stellar_xdr::ScSpecUdtStructFieldV0 {
+                doc: StringM::default(),
+                name: StringM::from_str("b").unwrap(),
+                type_: ScType::Option(Box::new(stellar_xdr::ScSpecTypeOption {
+                    value_type: Box::new(ScType::Udt(stellar_xdr::ScSpecTypeUdt {
+                        name: StringM::from_str("NodeB").unwrap(),
+                    })),
+                })),
+            }]
+            .try_into()
+            .unwrap(),
+        });
+
+        let node_b = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: StringM::from_str("NodeB").unwrap(),
+            fields: vec![stellar_xdr::ScSpecUdtStructFieldV0 {
+                doc: StringM::default(),
+                name: StringM::from_str("a").unwrap(),
+                type_: ScType::Option(Box::new(stellar_xdr::ScSpecTypeOption {
+                    value_type: Box::new(ScType::Udt(stellar_xdr::ScSpecTypeUdt {
+                        name: StringM::from_str("NodeA").unwrap(),
+                    })),
+                })),
+            }]
+            .try_into()
+            .unwrap(),
+        });
+
+        let spec = Spec::new(&[node_a, node_b]);
+        let type_a = ScType::Udt(stellar_xdr::ScSpecTypeUdt {
+            name: StringM::from_str("NodeA").unwrap(),
+        });
+        let value_name = spec.arg_value_name(&type_a, 0);
+        assert!(value_name.is_some());
     }
 }

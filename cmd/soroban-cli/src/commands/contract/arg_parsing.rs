@@ -1918,4 +1918,67 @@ mod tests {
             "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
         );
     }
+
+    #[test]
+    fn invoke_help_with_recursive_type_does_not_stack_overflow() {
+        // Regression test for https://github.com/stellar/stellar-cli/issues/2445
+        // A contract with a recursive type (TreeNode -> Vec<TreeNode>) must not crash with
+        // stack overflow when building the clap command or rendering help.
+        use std::str::FromStr;
+        use stellar_xdr::{
+            ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeUdt,
+            ScSpecUdtStructFieldV0, ScSpecUdtStructV0, StringM,
+        };
+
+        let tree_node_struct = ScSpecEntry::UdtStructV0(ScSpecUdtStructV0 {
+            doc: StringM::default(),
+            lib: StringM::default(),
+            name: StringM::from_str("TreeNode").unwrap(),
+            fields: vec![
+                ScSpecUdtStructFieldV0 {
+                    doc: StringM::default(),
+                    name: StringM::from_str("value").unwrap(),
+                    type_: ScSpecTypeDef::U32,
+                },
+                ScSpecUdtStructFieldV0 {
+                    doc: StringM::default(),
+                    name: StringM::from_str("children").unwrap(),
+                    type_: ScSpecTypeDef::Vec(Box::new(stellar_xdr::ScSpecTypeVec {
+                        element_type: Box::new(ScSpecTypeDef::Udt(ScSpecTypeUdt {
+                            name: StringM::from_str("TreeNode").unwrap(),
+                        })),
+                    })),
+                },
+            ]
+            .try_into()
+            .unwrap(),
+        });
+
+        let func = ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: StringM::default(),
+            name: stellar_xdr::ScSymbol(StringM::from_str("hello").unwrap()),
+            inputs: vec![ScSpecFunctionInputV0 {
+                doc: StringM::default(),
+                name: StringM::from_str("tree").unwrap(),
+                type_: ScSpecTypeDef::Udt(ScSpecTypeUdt {
+                    name: StringM::from_str("TreeNode").unwrap(),
+                }),
+            }]
+            .try_into()
+            .unwrap(),
+            outputs: vec![].try_into().unwrap(),
+        });
+
+        let spec = Spec::new(&[tree_node_struct, func]);
+        let mut cmd =
+            build_clap_command(&spec, true).expect("command should build without stack overflow");
+        let subcmd = cmd
+            .find_subcommand_mut("hello")
+            .expect("subcommand hello should exist");
+        let help = subcmd.render_long_help().to_string();
+        assert!(
+            help.contains("--tree"),
+            "help should contain --tree argument: {help}"
+        );
+    }
 }
