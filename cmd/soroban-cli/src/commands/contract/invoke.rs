@@ -391,6 +391,9 @@ impl Cmd {
                 .simulate(&host_function_params, &default_account_entry(), &client)
                 .await?;
             let should_send = self.should_send_tx(&assembled.sim_res)?;
+            if should_send != ShouldSend::Yes {
+                print.infoln(crate::tx::format_estimated_fee(assembled.estimated_fee()));
+            }
             (should_send, Some(assembled))
         };
 

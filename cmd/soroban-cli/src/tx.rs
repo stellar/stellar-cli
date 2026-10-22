@@ -63,6 +63,7 @@ where
     )
     .await?;
     let assembled = resources.apply_to_assembled_txn(txn);
+    print.infoln(format_estimated_fee(assembled.estimated_fee()));
     let mut txn = Box::new(assembled.transaction().clone());
     let sim_res = assembled.sim_response();
 
@@ -167,5 +168,22 @@ pub async fn send_transaction_polling_with_events(
             }
             Err(e)
         }
+    }
+}
+
+pub fn format_estimated_fee(fee: i64) -> String {
+    format!("Estimated fee: {} XLM", print::format_number(fee, 7))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_estimated_fee() {
+        assert_eq!(format_estimated_fee(0), "Estimated fee: 0 XLM");
+        assert_eq!(format_estimated_fee(100), "Estimated fee: 0.00001 XLM");
+        assert_eq!(format_estimated_fee(10_000_000), "Estimated fee: 1 XLM");
+        assert_eq!(format_estimated_fee(25_500_000), "Estimated fee: 2.55 XLM");
     }
 }
