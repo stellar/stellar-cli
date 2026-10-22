@@ -39,10 +39,10 @@ fn format_decoded_event(decoded: &DecodedEvent, status: &str) -> String {
 
 pub fn all(events: &[DiagnosticEvent]) {
     for (index, event) in events.iter().enumerate() {
-        let json = serde_json::to_string(event).unwrap();
+        let json = serde_json::to_string(event).unwrap_or_default();
         let xdr = event
             .to_xdr_base64(xdr::Limits::depth(XDR_DEPTH_LIMIT))
-            .unwrap();
+            .unwrap_or_default();
         print_event(&xdr, &json, index);
     }
 }
@@ -216,5 +216,51 @@ mod tests {
         };
 
         assert_no_control_chars(&format_decoded_event(&decoded, "Success"));
+    }
+
+    #[test]
+    fn test_failure_outputs_error_and_log_events() {
+        let events = vec![
+            DiagnosticEvent {
+                in_successful_contract_call: false,
+                event: ContractEvent {
+                    ext: xdr::ExtensionPoint::V0,
+                    contract_id: Some(stellar_xdr::ContractId(xdr::Hash([1; 32]))),
+                    type_: ContractEventType::Diagnostic,
+                    body: ContractEventBody::V0(ContractEventV0 {
+                        topics: vec![
+                            xdr::ScVal::Symbol(str_to_sc_symbol("log")),
+                            xdr::ScVal::Symbol(str_to_sc_symbol("debug_info")),
+                        ]
+                        .try_into()
+                        .unwrap(),
+                        data: xdr::ScVal::U32(42),
+                    }),
+                },
+            },
+            DiagnosticEvent {
+                in_successful_contract_call: false,
+                event: ContractEvent {
+                    ext: xdr::ExtensionPoint::V0,
+                    contract_id: Some(stellar_xdr::ContractId(xdr::Hash([1; 32]))),
+                    type_: ContractEventType::Diagnostic,
+                    body: ContractEventBody::V0(ContractEventV0 {
+                        topics: vec![
+                            xdr::ScVal::Symbol(str_to_sc_symbol("error")),
+                            xdr::ScVal::Error(xdr::ScError::Contract(101)),
+                        ]
+                        .try_into()
+                        .unwrap(),
+                        data: xdr::ScVal::String(xdr::ScString(
+                            "contract trapped".try_into().unwrap(),
+                        )),
+                    }),
+                },
+            },
+        ];
+
+        let print = Print::new(true);
+        failure(&events, &print);
+        all(&events);
     }
 }

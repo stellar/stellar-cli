@@ -10,6 +10,7 @@ use soroban_rpc::{
     AuthMode, Error, LogEvents, LogResources, ResourceConfig, SimulateTransactionResponse,
 };
 
+use crate::print::Print;
 use crate::utils::XDR_DEPTH_LIMIT;
 
 pub async fn simulate_and_assemble_transaction(
@@ -41,8 +42,12 @@ pub async fn simulate_and_assemble_transaction(
         .await?;
     tracing::trace!("{sim_res:#?}");
 
+    let events = sim_res.events().unwrap_or_default();
+    crate::log::event::all(&events);
+
     if let Some(e) = &sim_res.error {
-        crate::log::event::all(&sim_res.events()?);
+        let print = Print::new(false);
+        crate::log::event::failure(&events, &print);
         Err(Error::TransactionSimulationFailed(e.clone()))
     } else {
         Ok(Assembled::new(tx, sim_res, resource_fee, record_auth)?)
