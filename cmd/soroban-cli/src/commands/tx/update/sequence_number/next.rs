@@ -34,6 +34,15 @@ pub enum Error {
     Network(#[from] config::network::Error),
 }
 
+fn account_address_from_muxed(tx_source_acct: &MuxedAccount) -> String {
+    match tx_source_acct {
+        MuxedAccount::Ed25519(_) => tx_source_acct.to_string(),
+        MuxedAccount::MuxedEd25519(muxed) => {
+            MuxedAccount::Ed25519(muxed.ed25519.clone()).to_string()
+        }
+    }
+}
+
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let mut tx = tx_envelope_from_input(&None)?;
@@ -68,9 +77,41 @@ impl Cmd {
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
 
-        let address = tx_source_acct.to_string();
+        let address = account_address_from_muxed(tx_source_acct);
 
         let account = client.get_account(&address).await?;
         Ok(*account.seq_num.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xdr::{MuxedAccountMed25519, Uint256};
+
+    #[test]
+    fn test_account_address_from_muxed_plain() {
+        let acct = MuxedAccount::Ed25519(Uint256([0u8; 32]));
+        let addr = account_address_from_muxed(&acct);
+        assert!(addr.starts_with('G'));
+        assert_eq!(addr, acct.to_string());
+    }
+
+    #[test]
+    fn test_account_address_from_muxed_med25519() {
+        let bytes = [42u8; 32];
+        let plain_acct = MuxedAccount::Ed25519(Uint256(bytes));
+        let muxed_acct = MuxedAccount::MuxedEd25519(MuxedAccountMed25519 {
+            id: 123,
+            ed25519: Uint256(bytes),
+        });
+
+        // The muxed account strkey starts with 'M'
+        assert!(muxed_acct.to_string().starts_with('M'));
+
+        // The extracted underlying account strkey must start with 'G' and match the base account
+        let resolved = account_address_from_muxed(&muxed_acct);
+        assert!(resolved.starts_with('G'));
+        assert_eq!(resolved, plain_acct.to_string());
     }
 }
