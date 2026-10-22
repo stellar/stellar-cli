@@ -30,6 +30,8 @@ pub enum Error {
     Xdr(#[from] xdr::Error),
     #[error("transaction {tx_hash} not found on {network} network")]
     NotFound { tx_hash: Hash, network: String },
+    #[error("transaction {tx_hash} not found")]
+    NotFoundGeneric { tx_hash: Hash },
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
@@ -52,16 +54,25 @@ impl Args {
         let client = network.rpc_client()?;
         let tx_hash = self.hash.clone();
         let tx = client.get_transaction(&tx_hash).await?;
-        match tx.status.clone() {
-            val if val == *"NOT_FOUND" => {
-                if let Some(n) = &self.network.network {
-                    return Err(Error::NotFound {
-                        tx_hash,
-                        network: n.clone(),
-                    });
+        if tx.status == "NOT_FOUND" {
+            let network_name = self.network.network.clone().or_else(|| {
+                match network.network_passphrase.as_str() {
+                    network::passphrase::TESTNET => Some("testnet".to_string()),
+                    network::passphrase::MAINNET => Some("mainnet".to_string()),
+                    network::passphrase::FUTURENET => Some("futurenet".to_string()),
+                    network::passphrase::LOCAL => Some("local".to_string()),
+                    _ => None,
                 }
-            }
-            _ => {}
+            });
+
+            return if let Some(n) = network_name {
+                Err(Error::NotFound {
+                    tx_hash,
+                    network: n,
+                })
+            } else {
+                Err(Error::NotFoundGeneric { tx_hash })
+            };
         }
         Ok(tx)
     }
@@ -77,5 +88,29 @@ impl Args {
             println!("Transaction Ledger: {ledger}");
         }
         println!();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_not_found_formatting() {
+        let hash = Hash([0u8; 32]);
+        let err = Error::NotFound {
+            tx_hash: hash.clone(),
+            network: "testnet".to_string(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "transaction 0000000000000000000000000000000000000000000000000000000000000000 not found on testnet network"
+        );
+
+        let err_generic = Error::NotFoundGeneric { tx_hash: hash };
+        assert_eq!(
+            err_generic.to_string(),
+            "transaction 0000000000000000000000000000000000000000000000000000000000000000 not found"
+        );
     }
 }
