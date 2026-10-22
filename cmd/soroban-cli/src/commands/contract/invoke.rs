@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt::Debug, fs, io};
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use soroban_rpc::{Client, SimulateHostFunctionResult, SimulateTransactionResponse};
 use soroban_spec::read::FromWasmError;
 
@@ -526,17 +526,7 @@ fn build_invoke_contract_tx(
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, ValueEnum, Default)]
-pub enum Send {
-    /// Send transaction if simulation indicates there are ledger writes,
-    /// published events, or auth required, otherwise return simulation result
-    #[default]
-    Default,
-    /// Do not send transaction, return simulation result
-    No,
-    /// Always send transaction
-    Yes,
-}
+pub use super::Send;
 
 #[derive(Debug, PartialEq)]
 enum ShouldSend {

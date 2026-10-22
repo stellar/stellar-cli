@@ -72,6 +72,9 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+    /// Whether to send the transaction or only simulate it
+    #[arg(long, default_value = "default", help_heading = HEADING_TRANSACTION)]
+    pub send: super::super::Send,
     /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
@@ -346,6 +349,7 @@ impl Cmd {
                     auth_mode: self.auth_mode.clone(),
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
+                    send: self.send,
                     package: None,
                     build_args: build::BuildArgs::default(),
                 }
@@ -443,6 +447,25 @@ impl Cmd {
         if self.build_only {
             print.checkln("Transaction built!");
             return Ok(TxnResult::Txn(txn));
+        }
+
+        if self.send == super::super::Send::No {
+            print.infoln("Simulating transaction…");
+            let assembled = crate::assembled::simulate_and_assemble_transaction(
+                &client,
+                &txn,
+                self.resources.resource_config(),
+                self.resources.resource_fee,
+                self.auth_mode.to_rpc(),
+            )
+            .await?;
+
+            print.infoln(
+                "Simulation identified deploy. Not sending transaction due to `--send=no`.",
+            );
+            let tx_env: crate::xdr::TransactionEnvelope = assembled.transaction().clone().into();
+            self.resources.print_simulated_cost_info(&tx_env)?;
+            return Ok(TxnResult::Res(contract_id));
         }
 
         sim_sign_and_send_tx::<Error>(
@@ -596,5 +619,23 @@ mod tests {
         let contracts = [built(crate::config::alias::NATIVE)];
 
         assert_eq!(reserved_package_alias(Some(&alias), &contracts), None);
+    }
+
+    #[test]
+    fn test_deploy_wasm_cli_send_and_cost_flags() {
+        use clap::Parser;
+        let cmd = Cmd::try_parse_from(&[
+            "deploy",
+            "--source-account",
+            "alice",
+            "--wasm",
+            "dummy.wasm",
+            "--send",
+            "no",
+            "--cost",
+        ])
+        .unwrap();
+        assert_eq!(cmd.send, crate::commands::contract::Send::No);
+        assert!(cmd.resources.cost);
     }
 }

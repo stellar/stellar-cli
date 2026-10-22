@@ -278,6 +278,41 @@ impl FeeTable {
         self.proposed.fee - self.charged.fee
     }
 
+    pub fn new_from_envelope(tx_envelope: &TransactionEnvelope) -> Self {
+        let proposed = Self::extract_proposed_fees(tx_envelope);
+        let charged = ChargedFees {
+            fee: 0,
+            resource_fee: 0,
+            inclusion_fee: 0,
+            non_refundable_resource_fee: 0,
+            refundable_resource_fee: 0,
+        };
+        FeeTable { proposed, charged }
+    }
+
+    pub fn simulated_table(&self) -> String {
+        let rows = vec![
+            vec![(
+                format!("{FEE_PROPOSED_TITLE}: {}", self.proposed.fee),
+                4,
+                false,
+            )],
+            vec![
+                (
+                    format!("{INCLUSION_FEE_TITLE}: {}", self.proposed.inclusion_fee),
+                    1,
+                    false,
+                ),
+                (
+                    format!("{RESOURCE_FEE_TITLE}: {}", self.proposed.resource_fee),
+                    3,
+                    false,
+                ),
+            ],
+        ];
+        render_span_table(&rows, 4)
+    }
+
     pub fn table(&self) -> String {
         let mut rows = self.proposed_rows();
         rows.push(vec![("👆 Proposed Fee  👇 Final Fee".to_string(), 4, true)]);
