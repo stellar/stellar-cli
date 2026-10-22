@@ -316,9 +316,6 @@ fn parse_single_argument(
         };
 
         parse_positional_value(input, &s, spec, config, signers, parsed_args, print)
-    } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
-        parsed_args.push(ScVal::Void);
-        Ok(())
     } else if let Some(arg_path) = matches_.get_one::<PathBuf>(&fmt_arg_file_name(&name)) {
         parsed_args.push(parse_file_argument(
             &name,
@@ -329,6 +326,9 @@ fn parse_single_argument(
             config,
             print,
         )?);
+        Ok(())
+    } else if matches!(input.type_, ScSpecTypeDef::Option(_)) {
+        parsed_args.push(ScVal::Void);
         Ok(())
     } else {
         Err(Error::MissingArgument {
@@ -1898,6 +1898,100 @@ mod tests {
     }
 
     /// Mirrors `stellar contract invoke`: Spec::from_wasm -> build_clap_command -> render_long_help.
+    #[test]
+    fn optional_arg_reads_value_from_file_path() {
+        use stellar_xdr::ScSpecTypeOption;
+        let spec_entries = function_spec(
+            "opt",
+            &[(
+                "i",
+                ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+                    value_type: Box::new(ScSpecTypeDef::U32),
+                })),
+            )],
+        );
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        file.write_all(b"127").unwrap();
+
+        let slop = vec![
+            "opt".into(),
+            "--i-file-path".into(),
+            file.path().as_os_str().to_os_string(),
+        ];
+
+        let (_func, _spec, invoke_args, _signers) = build_host_function_parameters(
+            &contract_id,
+            &slop,
+            &spec_entries,
+            &config,
+            &Print::new(false),
+        )
+        .unwrap();
+
+        assert_eq!(invoke_args.args.as_slice(), &[ScVal::U32(127)]);
+    }
+
+    #[test]
+    fn optional_arg_omitted_defaults_to_void() {
+        use stellar_xdr::ScSpecTypeOption;
+        let spec_entries = function_spec(
+            "opt",
+            &[(
+                "i",
+                ScSpecTypeDef::Option(Box::new(ScSpecTypeOption {
+                    value_type: Box::new(ScSpecTypeDef::U32),
+                })),
+            )],
+        );
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+
+        let slop = vec!["opt".into()];
+
+        let (_func, _spec, invoke_args, _signers) = build_host_function_parameters(
+            &contract_id,
+            &slop,
+            &spec_entries,
+            &config,
+            &Print::new(false),
+        )
+        .unwrap();
+
+        assert_eq!(invoke_args.args.as_slice(), &[ScVal::Void]);
+    }
+
+    #[test]
+    fn required_arg_reads_value_from_file_path() {
+        let spec_entries = function_spec("req", &[("i", ScSpecTypeDef::U32)]);
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        file.write_all(b"42").unwrap();
+
+        let slop = vec![
+            "req".into(),
+            "--i-file-path".into(),
+            file.path().as_os_str().to_os_string(),
+        ];
+
+        let (_func, _spec, invoke_args, _signers) = build_host_function_parameters(
+            &contract_id,
+            &slop,
+            &spec_entries,
+            &config,
+            &Print::new(false),
+        )
+        .unwrap();
+
+        assert_eq!(invoke_args.args.as_slice(), &[ScVal::U32(42)]);
+    }
+
     #[test]
     fn invoke_help_strips_control_characters() {
         let path = concat!(
