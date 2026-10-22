@@ -958,9 +958,12 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                     return Ok(key);
                 }
             }
-            // Bytes are not an address, just parse as a hex string
-            utils::padded_hex_from_str(s, bytes.n as usize)
-                .map_err(|_| Error::InvalidValue(Some(t.clone())))?
+            // Bytes are not an address, parse as exact hex string (no zero padding)
+            let decoded = hex::decode(s).map_err(|_| Error::InvalidValue(Some(t.clone())))?;
+            if decoded.len() != bytes.n as usize {
+                return Err(Error::InvalidValue(Some(t.clone())));
+            }
+            decoded
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?
         })),
@@ -973,7 +976,23 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         ),
-        (ScType::Bytes | ScType::BytesN(_), Value::Array(raw)) => {
+        (ScType::BytesN(bytes), Value::Array(raw)) => {
+            if raw.len() != bytes.n as usize {
+                return Err(Error::InvalidValue(Some(t.clone())));
+            }
+            let b: Result<Vec<u8>, Error> = raw
+                .iter()
+                .map(|item| {
+                    item.as_u64()
+                        .ok_or_else(|| Error::InvalidValue(Some(t.clone())))?
+                        .try_into()
+                        .map_err(|_| Error::InvalidValue(Some(t.clone())))
+                })
+                .collect();
+            let converted: BytesM<{ u32::MAX }> = b?.try_into().map_err(Error::Xdr)?;
+            ScVal::Bytes(ScBytes(converted))
+        }
+        (ScType::Bytes, Value::Array(raw)) => {
             let b: Result<Vec<u8>, Error> = raw
                 .iter()
                 .map(|item| {
@@ -1844,6 +1863,55 @@ mod tests {
         let val = Value::Number(serde_json::Number::from(10u64));
         let result = from_json_primitives(&val, &ScType::Bytes);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bytesn_rejects_underlength_hex() {
+        // "abcd" is 2 bytes, but BytesN<4> requires 4 bytes (8 hex characters)
+        let as_str = "abcd";
+        let result = from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 4 }));
+        assert!(
+            result.is_err(),
+            "Under-length BytesN hex must be rejected instead of zero-padded"
+        );
+    }
+
+    #[test]
+    fn test_bytesn_rejects_overlength_hex() {
+        // "beefface00" is 5 bytes, BytesN<4> requires 4 bytes
+        let as_str = "beefface00";
+        let result = from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 4 }));
+        assert!(result.is_err(), "Over-length BytesN hex must be rejected");
+    }
+
+    #[test]
+    fn test_bytesn_rejects_odd_length_hex() {
+        // "beeffac" is 7 hex digits (odd), must be rejected
+        let as_str = "beeffac";
+        let result = from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 4 }));
+        assert!(
+            result.is_err(),
+            "Odd-length hex must be rejected for BytesN"
+        );
+    }
+
+    #[test]
+    fn test_bytes_rejects_odd_length_hex() {
+        // "123" is 3 hex digits (odd), must be rejected
+        let as_str = "123";
+        let result = from_string_primitive(as_str, &ScType::Bytes);
+        assert!(result.is_err(), "Odd-length hex must be rejected for Bytes");
+    }
+
+    #[test]
+    fn test_bytesn_array_rejects_mismatched_length() {
+        // Array of 2 bytes for BytesN<4> must be rejected
+        let as_str = "[190,239]";
+        let result = from_string_primitive(as_str, &ScType::BytesN(ScSpecTypeBytesN { n: 4 }));
+        assert!(
+            result.is_err(),
+            "Mismatched array length for BytesN must be rejected"
+        );
     }
 
     #[test]
