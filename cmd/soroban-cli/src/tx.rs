@@ -11,6 +11,7 @@ use crate::{
     },
 };
 use soroban_rpc::GetTransactionResponse;
+use soroban_spec_tools::Spec;
 
 pub mod builder;
 
@@ -42,6 +43,41 @@ pub async fn sim_sign_and_send_tx<E>(
     auth_mode: Option<soroban_rpc::AuthMode>,
     quiet: bool,
     no_cache: bool,
+) -> Result<GetTransactionResponse, E>
+where
+    E: From<soroban_rpc::Error>
+        + From<config::Error>
+        + From<fetch::Error>
+        + From<data::Error>
+        + From<network::Error>
+        + From<xdr::Error>,
+{
+    sim_sign_and_send_tx_with_spec(
+        client,
+        tx,
+        config,
+        resources,
+        auth_signers,
+        auth_mode,
+        quiet,
+        no_cache,
+        None,
+    )
+    .await
+}
+
+/// Simulates, signs, and sends a transaction, annotating error events using the contract spec if provided.
+#[allow(clippy::too_many_arguments)]
+pub async fn sim_sign_and_send_tx_with_spec<E>(
+    client: &soroban_rpc::Client,
+    tx: &Transaction,
+    config: &config::Args,
+    resources: &resources::Args,
+    auth_signers: &[Signer],
+    auth_mode: Option<soroban_rpc::AuthMode>,
+    quiet: bool,
+    no_cache: bool,
+    spec: Option<&Spec>,
 ) -> Result<GetTransactionResponse, E>
 where
     E: From<soroban_rpc::Error>
@@ -108,11 +144,12 @@ where
     print.globeln("Sending transaction…");
 
     // returns an error if the transaction fails
-    let res = send_transaction_polling_with_events(
+    let res = send_transaction_polling_with_events_with_spec(
         client,
         &signed_tx,
         &network.network_passphrase,
         &print,
+        spec,
     )
     .await?;
 
@@ -148,6 +185,25 @@ pub async fn send_transaction_polling_with_events(
     network_passphrase: &str,
     print: &print::Print,
 ) -> Result<GetTransactionResponse, soroban_rpc::Error> {
+    send_transaction_polling_with_events_with_spec(
+        client,
+        signed_tx,
+        network_passphrase,
+        print,
+        None,
+    )
+    .await
+}
+
+/// Submits a signed transaction and polls for its result, surfacing diagnostic
+/// events annotated with the contract spec if provided when the transaction fails.
+pub async fn send_transaction_polling_with_events_with_spec(
+    client: &soroban_rpc::Client,
+    signed_tx: &TransactionEnvelope,
+    network_passphrase: &str,
+    print: &print::Print,
+    spec: Option<&Spec>,
+) -> Result<GetTransactionResponse, soroban_rpc::Error> {
     match client.send_transaction_polling(signed_tx).await {
         Ok(res) => Ok(res),
         Err(e) => {
@@ -162,7 +218,7 @@ pub async fn send_transaction_polling_with_events(
                 if let Ok(resp) = client.get_transaction(&Hash(hash)).await {
                     let events = &resp.events.diagnostic_events;
                     crate::log::event::all(events);
-                    crate::log::event::failure(events, print);
+                    crate::log::event::failure_with_spec(events, print, spec);
                 }
             }
             Err(e)

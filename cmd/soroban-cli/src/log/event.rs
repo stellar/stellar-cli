@@ -136,9 +136,16 @@ pub fn contract_with_spec(events: &[DiagnosticEvent], print: &Print, spec: Optio
 /// `topics` carries the error type/code (an `ScError`) and `data` carries the
 /// message payload. Both are serialized as JSON, which escapes any control
 /// bytes present in the payload.
-fn format_error_event(topics: &[xdr::ScVal], data: &xdr::ScVal) -> String {
+fn format_error_event(topics: &[xdr::ScVal], data: &xdr::ScVal, spec: Option<&Spec>) -> String {
     let topics_json = serde_json::to_string(topics).unwrap();
     let data_json = serde_json::to_string(data).unwrap();
+    if let Some(spec) = spec {
+        if let Some(xdr::ScVal::Error(xdr::ScError::Contract(code))) = topics.get(1) {
+            if let Some(name) = spec.find_error_name(*code) {
+                return format!("Error event: {topics_json} ({name}) = {data_json}");
+            }
+        }
+    }
     format!("Error event: {topics_json} = {data_json}")
 }
 
@@ -149,7 +156,13 @@ fn format_error_event(topics: &[xdr::ScVal], data: &xdr::ScVal) -> String {
 /// contract error), which the success-path renderer intentionally drops. This is
 /// the most actionable information when a submitted transaction fails.
 pub fn failure(events: &[DiagnosticEvent], print: &Print) {
-    contract_with_spec(events, print, None);
+    failure_with_spec(events, print, None);
+}
+
+/// Display diagnostic events for a failed transaction, annotating error codes
+/// and contract events using the contract spec if provided.
+pub fn failure_with_spec(events: &[DiagnosticEvent], print: &Print, spec: Option<&Spec>) {
+    contract_with_spec(events, print, spec);
 
     for event in events.iter().cloned() {
         if let DiagnosticEvent {
@@ -163,7 +176,7 @@ pub fn failure(events: &[DiagnosticEvent], print: &Print) {
         } = event
         {
             if topics.first() == Some(&xdr::ScVal::Symbol(str_to_sc_symbol("error"))) {
-                print.errorln(format_error_event(topics.as_slice(), &data));
+                print.errorln(format_error_event(topics.as_slice(), &data, spec));
             }
         }
     }
@@ -194,7 +207,7 @@ mod tests {
         // A message payload carrying an ANSI control sequence to ensure it is escaped.
         let data = xdr::ScVal::String(xdr::ScString("boom\x1b[31m".try_into().unwrap()));
 
-        let rendered = format_error_event(&topics, &data);
+        let rendered = format_error_event(&topics, &data, None);
 
         assert!(rendered.contains("boom"), "message payload should be shown");
         assert!(
@@ -202,6 +215,37 @@ mod tests {
             "error code should be shown: {rendered}"
         );
         assert_no_control_chars(&rendered);
+    }
+
+    #[test]
+    fn format_error_event_annotates_with_spec() {
+        let spec = Spec::new(&[xdr::ScSpecEntry::UdtErrorEnumV0(
+            xdr::ScSpecUdtErrorEnumV0 {
+                doc: "".try_into().unwrap(),
+                lib: "".try_into().unwrap(),
+                name: "TokenError".try_into().unwrap(),
+                cases: vec![xdr::ScSpecUdtErrorEnumCaseV0 {
+                    doc: "".try_into().unwrap(),
+                    name: "InsufficientBalance".try_into().unwrap(),
+                    value: 7,
+                }]
+                .try_into()
+                .unwrap(),
+            },
+        )]);
+
+        let topics = vec![
+            xdr::ScVal::Symbol(str_to_sc_symbol("error")),
+            xdr::ScVal::Error(xdr::ScError::Contract(7)),
+        ];
+        let data = xdr::ScVal::Void;
+
+        let rendered = format_error_event(&topics, &data, Some(&spec));
+        assert!(
+            rendered.contains("TokenError::InsufficientBalance"),
+            "expected annotated error name in: {rendered}"
+        );
+        assert!(rendered.contains(r#"{"contract":7}"#));
     }
 
     #[test]

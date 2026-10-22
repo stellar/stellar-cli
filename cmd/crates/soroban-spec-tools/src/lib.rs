@@ -221,14 +221,39 @@ impl Spec {
     /// # Errors
     ///
     pub fn find_error_type(&self, value: u32) -> Result<&ScSpecUdtErrorEnumCaseV0, Error> {
-        if let ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { cases, .. }) =
-            self.find("Error")?
+        if let Ok(ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { cases, .. })) =
+            self.find("Error")
         {
             if let Some(case) = cases.iter().find(|case| value == case.value) {
                 return Ok(case);
             }
         }
+        if let Some(entries) = self.0.as_deref() {
+            for entry in entries {
+                if let ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { cases, .. }) = entry {
+                    if let Some(case) = cases.iter().find(|case| value == case.value) {
+                        return Ok(case);
+                    }
+                }
+            }
+        }
         Err(Error::MissingErrorCase(value))
+    }
+
+    /// Look up the human-readable name of an error code from the contract spec.
+    /// Returns e.g. "MyError::Unauthorized".
+    pub fn find_error_name(&self, code: u32) -> Option<String> {
+        let entries = self.0.as_deref()?;
+        for entry in entries {
+            if let ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 { name, cases, .. }) = entry {
+                if let Some(case) = cases.iter().find(|case| case.value == code) {
+                    let enum_name = sanitize(&name.to_utf8_string_lossy());
+                    let case_name = sanitize(&case.name.to_utf8_string_lossy());
+                    return Some(format!("{enum_name}::{case_name}"));
+                }
+            }
+        }
+        None
     }
 
     /// Find all event specs in the contract spec
@@ -2683,5 +2708,40 @@ mod tests {
         let spec = Spec::new(&[]);
         let err = spec.find_function("evil\x1b[2J").unwrap_err();
         crate::test_utils::assert_no_control_chars(&format!("{err}"));
+    }
+    #[test]
+    fn test_find_error_name_and_type() {
+        let spec = Spec::new(&[ScSpecEntry::UdtErrorEnumV0(ScSpecUdtErrorEnumV0 {
+            doc: "".try_into().unwrap(),
+            lib: "".try_into().unwrap(),
+            name: "CustomError".try_into().unwrap(),
+            cases: vec![
+                ScSpecUdtErrorEnumCaseV0 {
+                    doc: "".try_into().unwrap(),
+                    name: "Unauthorized".try_into().unwrap(),
+                    value: 401,
+                },
+                ScSpecUdtErrorEnumCaseV0 {
+                    doc: "".try_into().unwrap(),
+                    name: "NotFound".try_into().unwrap(),
+                    value: 404,
+                },
+            ]
+            .try_into()
+            .unwrap(),
+        })]);
+
+        assert_eq!(
+            spec.find_error_name(401),
+            Some("CustomError::Unauthorized".to_string())
+        );
+        assert_eq!(
+            spec.find_error_name(404),
+            Some("CustomError::NotFound".to_string())
+        );
+        assert_eq!(spec.find_error_name(500), None);
+
+        let case = spec.find_error_type(401).unwrap();
+        assert_eq!(case.name.to_utf8_string_lossy(), "Unauthorized");
     }
 }

@@ -15,7 +15,7 @@ use crate::assembled::Assembled;
 use crate::commands::tx::fetch;
 use crate::log::extract_events;
 use crate::print::Print;
-use crate::tx::sim_sign_and_send_tx;
+use crate::tx::sim_sign_and_send_tx_with_spec;
 use crate::utils::deprecate_message;
 use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
@@ -43,6 +43,7 @@ use crate::{
     Pwd,
 };
 use soroban_spec_tools::contract;
+use soroban_spec_tools::Spec;
 
 #[derive(Parser, Debug, Default, Clone)]
 #[allow(clippy::struct_excessive_bools)]
@@ -387,9 +388,19 @@ impl Cmd {
         let (should_send, cached_simulation) = if self.build_only {
             (ShouldSend::Yes, None)
         } else {
-            let assembled = self
+            let assembled = match self
                 .simulate(&host_function_params, &default_account_entry(), &client)
-                .await?;
+                .await
+            {
+                Ok(assembled) => assembled,
+                Err(Error::Rpc(soroban_rpc::Error::TransactionSimulationFailed(e))) => {
+                    let annotated = annotate_error_string(&e, &spec);
+                    return Err(Error::Rpc(soroban_rpc::Error::TransactionSimulationFailed(
+                        annotated,
+                    )));
+                }
+                Err(e) => return Err(e),
+            };
             let should_send = self.should_send_tx(&assembled.sim_res)?;
             (should_send, Some(assembled))
         };
@@ -445,7 +456,7 @@ impl Cmd {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let res = sim_sign_and_send_tx::<Error>(
+        let res = sim_sign_and_send_tx_with_spec::<Error>(
             &client,
             &tx,
             config,
@@ -454,6 +465,7 @@ impl Cmd {
             self.auth_mode.to_rpc(),
             quiet,
             no_cache,
+            Some(&spec),
         )
         .await?;
 
@@ -568,4 +580,53 @@ fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         .results()?
         .iter()
         .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
+}
+
+pub(crate) fn annotate_error_string(msg: &str, spec: &Spec) -> String {
+    if let Ok(re) = regex::Regex::new(r"Error\(Contract,\s*#?(\d+)\)") {
+        re.replace_all(msg, |caps: &regex::Captures| {
+            if let Ok(code) = caps[1].parse::<u32>() {
+                if let Some(name) = spec.find_error_name(code) {
+                    return format!("{} ({name})", &caps[0]);
+                }
+            }
+            caps[0].to_string()
+        })
+        .to_string()
+    } else {
+        msg.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xdr;
+    use soroban_spec_tools::Spec;
+
+    #[test]
+    fn test_annotate_error_string() {
+        let spec = Spec::new(&[xdr::ScSpecEntry::UdtErrorEnumV0(
+            xdr::ScSpecUdtErrorEnumV0 {
+                doc: "".try_into().unwrap(),
+                lib: "".try_into().unwrap(),
+                name: "CustomError".try_into().unwrap(),
+                cases: vec![xdr::ScSpecUdtErrorEnumCaseV0 {
+                    doc: "".try_into().unwrap(),
+                    name: "Unauthorized".try_into().unwrap(),
+                    value: 401,
+                }]
+                .try_into()
+                .unwrap(),
+            },
+        )]);
+
+        let msg = "HostError: Error(Contract, #401)\n\nEvent log: something";
+        let annotated = annotate_error_string(msg, &spec);
+        assert!(annotated.contains("Error(Contract, #401) (CustomError::Unauthorized)"));
+
+        let msg_unmatched = "HostError: Error(Contract, #500)";
+        let not_annotated = annotate_error_string(msg_unmatched, &spec);
+        assert_eq!(not_annotated, msg_unmatched);
+    }
 }
