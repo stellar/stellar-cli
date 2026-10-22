@@ -17,6 +17,18 @@ pub mod restore;
 pub mod spec_verify;
 pub mod upload;
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
+pub enum Send {
+    /// Send transaction if simulation indicates there are ledger writes,
+    /// published events, or auth required, otherwise return simulation result
+    #[default]
+    Default,
+    /// Do not send transaction, return simulation result
+    No,
+    /// Always send transaction
+    Yes,
+}
+
 use crate::{commands::global, print::Print, utils::deprecate_message};
 
 #[derive(Debug, clap::Subcommand)]

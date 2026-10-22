@@ -4,6 +4,7 @@ use crate::assembled::Assembled;
 use crate::commands::tx::fetch;
 use crate::commands::tx::fetch::fee::FeeTable;
 use crate::commands::HEADING_RPC;
+use crate::xdr::TransactionEnvelope;
 
 #[derive(Debug, clap::Args, Clone, Default)]
 #[group(skip)]
@@ -47,5 +48,58 @@ impl Args {
         eprint!("{}", fee_table.table());
 
         Ok(())
+    }
+
+    pub fn print_simulated_cost_info(&self, tx: &TransactionEnvelope) -> Result<(), fetch::Error> {
+        if !self.cost {
+            return Ok(());
+        }
+
+        let fee_table = FeeTable::new_from_envelope(tx);
+
+        eprint!("{}", fee_table.simulated_table());
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xdr::{
+        Memo, MuxedAccount, Preconditions, SequenceNumber, SorobanResources,
+        SorobanTransactionData, SorobanTransactionDataExt, Transaction, TransactionExt,
+        TransactionV1Envelope, Uint256, VecM,
+    };
+
+    #[test]
+    fn test_print_simulated_cost_info() {
+        let args = Args {
+            cost: true,
+            ..Default::default()
+        };
+        let tx = Transaction {
+            source_account: MuxedAccount::Ed25519(Uint256([0; 32])),
+            fee: 100,
+            seq_num: SequenceNumber(1),
+            cond: Preconditions::None,
+            memo: Memo::None,
+            operations: VecM::default(),
+            ext: TransactionExt::V1(SorobanTransactionData {
+                ext: SorobanTransactionDataExt::V0,
+                resources: SorobanResources {
+                    footprint: Default::default(),
+                    instructions: 500,
+                    disk_read_bytes: 0,
+                    write_bytes: 0,
+                },
+                resource_fee: 200,
+            }),
+        };
+        let env = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx,
+            signatures: VecM::default(),
+        });
+        assert!(args.print_simulated_cost_info(&env).is_ok());
     }
 }

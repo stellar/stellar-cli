@@ -58,6 +58,10 @@ pub struct Cmd {
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 
+    /// Whether to send the transaction or only simulate it
+    #[arg(long, default_value = "default", help_heading = HEADING_TRANSACTION)]
+    pub send: super::Send,
+
     /// Package to build when --wasm is not provided
     #[arg(long, help_heading = "Build Options", conflicts_with = "wasm")]
     pub package: Option<String>,
@@ -302,6 +306,25 @@ impl Cmd {
             }
         }
 
+        if self.send == super::Send::No {
+            print.infoln("Simulating transaction…");
+            let assembled = crate::assembled::simulate_and_assemble_transaction(
+                &client,
+                &tx_without_preflight,
+                self.resources.resource_config(),
+                self.resources.resource_fee,
+                self.auth_mode.to_rpc(),
+            )
+            .await?;
+
+            print.infoln(
+                "Simulation identified upload. Not sending transaction due to `--send=no`.",
+            );
+            let tx_env: xdr::TransactionEnvelope = assembled.transaction().clone().into();
+            self.resources.print_simulated_cost_info(&tx_env)?;
+            return Ok(TxnResult::Res(hash));
+        }
+
         let txn_resp = sim_sign_and_send_tx::<Error>(
             &client,
             &tx_without_preflight,
@@ -433,6 +456,25 @@ mod tests {
     // The SDK version comes from attacker-influenceable contract metadata and is
     // rendered into an error message / warning line on the terminal, so control
     // and escape sequences must not survive.
+
+    #[test]
+    fn test_upload_cli_send_and_cost_flags() {
+        use clap::Parser;
+        let cmd = Cmd::try_parse_from(&[
+            "upload",
+            "--source-account",
+            "alice",
+            "--wasm",
+            "dummy.wasm",
+            "--send",
+            "no",
+            "--cost",
+        ])
+        .unwrap();
+        assert_eq!(cmd.send, super::super::Send::No);
+        assert!(cmd.resources.cost);
+    }
+
     #[test]
     fn sdk_version_strips_control_bytes() {
         let spec = spec_with_sdk_meta("0.9.0-rc\x1b[2Jhax");

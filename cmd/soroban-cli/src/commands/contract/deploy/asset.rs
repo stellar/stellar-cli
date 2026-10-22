@@ -94,6 +94,10 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+
+    /// Whether to send the transaction or only simulate it
+    #[arg(long, default_value = "default", help_heading = HEADING_TRANSACTION)]
+    pub send: super::super::Send,
 }
 
 impl Cmd {
@@ -186,6 +190,25 @@ impl Cmd {
             return Ok(TxnResult::Txn(Box::new(tx)));
         }
 
+        if self.send == crate::commands::contract::Send::No {
+            print.infoln("Simulating transaction…");
+            let assembled = crate::assembled::simulate_and_assemble_transaction(
+                &client,
+                &tx,
+                self.resources.resource_config(),
+                self.resources.resource_fee,
+                None,
+            )
+            .await?;
+
+            print.infoln(
+                "Simulation identified deploy. Not sending transaction due to `--send=no`.",
+            );
+            let tx_env: crate::xdr::TransactionEnvelope = assembled.transaction().clone().into();
+            self.resources.print_simulated_cost_info(&tx_env)?;
+            return Ok(TxnResult::Res(stellar_strkey::Contract(contract_id.0)));
+        }
+
         sim_sign_and_send_tx::<Error>(
             &client,
             &tx,
@@ -262,4 +285,27 @@ fn build_wrap_token_tx(
         operations: vec![op].try_into()?,
         ext: TransactionExt::V0,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deploy_asset_cli_send_and_cost_flags() {
+        use clap::Parser;
+        let cmd = Cmd::try_parse_from(&[
+            "asset",
+            "--source-account",
+            "alice",
+            "--asset",
+            "native",
+            "--send",
+            "no",
+            "--cost",
+        ])
+        .unwrap();
+        assert_eq!(cmd.send, crate::commands::contract::Send::No);
+        assert!(cmd.resources.cost);
+    }
 }

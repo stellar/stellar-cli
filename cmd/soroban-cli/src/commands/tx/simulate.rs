@@ -8,8 +8,12 @@ use std::ffi::OsString;
 use crate::commands::{config, global};
 use crate::utils::XDR_DEPTH_LIMIT;
 
+use crate::commands::tx::fetch;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Fetch(#[from] fetch::Error),
     #[error(transparent)]
     XdrArgs(#[from] super::xdr::Error),
     #[error(transparent)]
@@ -34,18 +38,18 @@ pub struct Cmd {
     #[clap(flatten)]
     pub config: config::Args,
 
-    /// Allow this many extra instructions when budgeting resources during transaction simulation
-    #[arg(long)]
-    pub instruction_leeway: Option<u64>,
-
     #[command(flatten)]
     pub auth_mode: crate::auth_mode::Args,
+
+    #[command(flatten)]
+    pub resources: crate::resources::Args,
 }
 
 impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.execute(global_args, &self.config).await?;
         let tx_env: TransactionEnvelope = res.transaction().clone().into();
+        self.resources.print_simulated_cost_info(&tx_env)?;
         println!(
             "{}",
             tx_env.to_xdr_base64(xdr::Limits::depth(XDR_DEPTH_LIMIT))?
@@ -62,14 +66,12 @@ impl Cmd {
         let network = config.get_network()?;
         let client = network.rpc_client()?;
         let tx = super::xdr::unwrap_envelope_v1(super::xdr::tx_envelope_from_input(&self.tx_xdr)?)?;
-        let resource_config = self
-            .instruction_leeway
-            .map(|instruction_leeway| soroban_rpc::ResourceConfig { instruction_leeway });
+        let resource_config = self.resources.resource_config();
         let tx = simulate_and_assemble_transaction(
             &client,
             &tx,
             resource_config,
-            None,
+            self.resources.resource_fee,
             self.auth_mode.to_rpc(),
         )
         .await?;
@@ -77,5 +79,26 @@ impl Cmd {
             print.warnln(format!("The transaction fee of {} is too large and needs to be wrapped in a fee bump transaction.", print::format_number(fee_bump_fee, 7)));
         }
         Ok(tx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tx_simulate_cost_and_leeway_flags() {
+        use clap::Parser;
+        let cmd = Cmd::try_parse_from(&[
+            "simulate",
+            "--source-account",
+            "alice",
+            "--cost",
+            "--instruction-leeway",
+            "5000",
+        ])
+        .unwrap();
+        assert!(cmd.resources.cost);
+        assert_eq!(cmd.resources.instruction_leeway, Some(5000));
     }
 }
