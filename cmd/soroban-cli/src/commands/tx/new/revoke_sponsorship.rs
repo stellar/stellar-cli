@@ -51,44 +51,6 @@ pub struct Args {
     pub signer_key: Option<address::UnresolvedMuxedAccount>,
 }
 
-fn parse_liquidity_pool_id(pool_id: &str) -> Result<Vec<u8>, tx::args::Error> {
-    // Handle multiple formats:
-    // 1. Address format (base32): LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    // 2. API format with type prefix (72 hex chars): 000000006f2179b3...
-    // 3. Direct hash format (64 hex chars): 6f2179b3...
-
-    if pool_id.starts_with('L') && pool_id.len() > 50 {
-        match stellar_strkey::Strkey::from_string(pool_id) {
-            Ok(stellar_strkey::Strkey::LiquidityPool(pool)) => Ok(pool.0.to_vec()),
-            _ => Err(tx::args::Error::InvalidHex {
-                name: "liquidity_pool_id".to_string(),
-                hex: pool_id.to_string(),
-            }),
-        }
-    } else {
-        let cleaned_pool_id = if pool_id.len() == 72 && pool_id.starts_with("00000000") {
-            &pool_id[8..]
-        } else {
-            pool_id
-        };
-
-        let pool_id_bytes =
-            hex::decode(cleaned_pool_id).map_err(|_| tx::args::Error::InvalidHex {
-                name: "liquidity_pool_id".to_string(),
-                hex: pool_id.to_string(),
-            })?;
-
-        if pool_id_bytes.len() != 32 {
-            return Err(tx::args::Error::InvalidHex {
-                name: "liquidity_pool_id".to_string(),
-                hex: pool_id.to_string(),
-            });
-        }
-
-        Ok(pool_id_bytes)
-    }
-}
-
 impl TryFrom<&Cmd> for xdr::OperationBody {
     type Error = tx::args::Error;
     fn try_from(cmd: &Cmd) -> Result<Self, Self::Error> {
@@ -151,16 +113,9 @@ impl TryFrom<&Cmd> for xdr::OperationBody {
             xdr::RevokeSponsorshipOp::LedgerEntry(ledger_key)
         } else if let Some(liquidity_pool_id) = &cmd.op.liquidity_pool_id {
             // Liquidity pool sponsorship
-            let pool_id_bytes = parse_liquidity_pool_id(liquidity_pool_id)?;
-            let pool_id_array: [u8; 32] =
-                pool_id_bytes
-                    .try_into()
-                    .map_err(|_| tx::args::Error::InvalidHex {
-                        name: "liquidity_pool_id".to_string(),
-                        hex: "must be 32 bytes".to_string(),
-                    })?;
+            let pool_id = tx::args::parse_liquidity_pool_id(liquidity_pool_id)?;
             let ledger_key = xdr::LedgerKey::LiquidityPool(xdr::LedgerKeyLiquidityPool {
-                liquidity_pool_id: xdr::PoolId(xdr::Hash(pool_id_array)),
+                liquidity_pool_id: pool_id,
             });
             xdr::RevokeSponsorshipOp::LedgerEntry(ledger_key)
         } else {
