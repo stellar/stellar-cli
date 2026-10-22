@@ -223,9 +223,15 @@ impl Cmd {
         let contract = wasm_args.read()?;
         let network = config.get_network()?;
         let client = network.rpc_client()?;
-        client
-            .verify_network_passphrase(Some(&network.network_passphrase))
-            .await?;
+        if !self.build_only {
+            client
+                .verify_network_passphrase(Some(&network.network_passphrase))
+                .await?;
+        } else {
+            let _ = client
+                .verify_network_passphrase(Some(&network.network_passphrase))
+                .await;
+        }
         let wasm_spec = &wasm_args.parse().map_err(|e| Error::CannotParseWasm {
             wasm: wasm_path.clone(),
             error: e,
@@ -248,17 +254,24 @@ impl Cmd {
             }
         }
 
-        // Get the account sequence number
-        let source_account = config.source_account()?;
-
-        let account_details = client
-            .get_account(&source_account.clone().to_string())
-            .await?;
-        let sequence: i64 = account_details.seq_num.into();
+        // Get the account sequence number and source account.
+        // In --build-only mode, source account is optional.
+        let source_res = config.source_account();
+        let account_fetch_res = match &source_res {
+            Ok(source_account) => Some(
+                client
+                    .get_account(&source_account.to_string())
+                    .await
+                    .map(|a| a.seq_num.into()),
+            ),
+            Err(_) => None,
+        };
+        let (source_account, sequence) =
+            resolve_source_and_sequence_fallback(source_res, account_fetch_res, self.build_only)?;
 
         let (tx_without_preflight, hash) = build_install_contract_code_tx(
             &contract,
-            sequence + 1,
+            sequence,
             config.get_inclusion_fee()?,
             &source_account,
         )?;
@@ -390,6 +403,36 @@ pub(crate) fn build_install_contract_code_tx(
     Ok((tx, hash))
 }
 
+pub(crate) fn resolve_source_and_sequence_fallback(
+    source_res: Result<xdr::MuxedAccount, config::Error>,
+    account_fetch_res: Option<Result<i64, rpc::Error>>,
+    build_only: bool,
+) -> Result<(xdr::MuxedAccount, i64), Error> {
+    match source_res {
+        Ok(source_account) => {
+            let sequence = match account_fetch_res {
+                Some(Ok(seq)) => seq + 1,
+                Some(Err(e)) if build_only => {
+                    tracing::warn!(
+                        "Could not fetch sequence number for source account: {e}; using 0 for --build-only"
+                    );
+                    0
+                }
+                Some(Err(e)) => return Err(e.into()),
+                None => 0,
+            };
+            Ok((source_account, sequence))
+        }
+        Err(_e) if build_only => {
+            // In --build-only mode, source account is optional.
+            // Fall back to a placeholder zero account (GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF)
+            // with sequence number 0.
+            Ok((xdr::MuxedAccount::Ed25519(xdr::Uint256([0u8; 32])), 0))
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -440,5 +483,57 @@ mod tests {
         soroban_spec_tools::test_utils::assert_no_control_chars(&version);
         // "rc" detection (used to gate the release-candidate check) still works.
         assert!(version.contains("rc"));
+    }
+    #[test]
+    fn test_resolve_source_and_sequence_build_only_no_source() {
+        let err = config::Error::Network(network::Error::MissingNetworkPassphrase);
+        let (account, sequence) = resolve_source_and_sequence_fallback(Err(err), None, true)
+            .expect("should succeed in build-only");
+        assert_eq!(sequence, 0);
+        assert_eq!(
+            account.to_string(),
+            "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
+        );
+    }
+
+    #[test]
+    fn test_resolve_source_and_sequence_requires_source_when_not_build_only() {
+        let err = config::Error::Network(network::Error::MissingNetworkPassphrase);
+        let res = resolve_source_and_sequence_fallback(Err(err), None, false);
+        assert!(matches!(
+            res,
+            Err(Error::Config(config::Error::Network(
+                network::Error::MissingNetworkPassphrase
+            )))
+        ));
+    }
+
+    #[test]
+    fn test_resolve_source_and_sequence_with_source_account() {
+        let account = xdr::MuxedAccount::Ed25519(xdr::Uint256([1u8; 32]));
+        let (resolved_acc, sequence) =
+            resolve_source_and_sequence_fallback(Ok(account.clone()), Some(Ok(42)), false).unwrap();
+        assert_eq!(resolved_acc, account);
+        assert_eq!(sequence, 43);
+    }
+
+    #[test]
+    fn test_resolve_source_and_sequence_with_source_fetch_err_build_only() {
+        let account = xdr::MuxedAccount::Ed25519(xdr::Uint256([1u8; 32]));
+        let rpc_err = rpc::Error::NotFound("test".to_string(), "test".to_string());
+        let (resolved_acc, sequence) =
+            resolve_source_and_sequence_fallback(Ok(account.clone()), Some(Err(rpc_err)), true)
+                .unwrap();
+        assert_eq!(resolved_acc, account);
+        assert_eq!(sequence, 0);
+    }
+
+    #[test]
+    fn test_resolve_source_and_sequence_with_source_fetch_err_not_build_only() {
+        let account = xdr::MuxedAccount::Ed25519(xdr::Uint256([1u8; 32]));
+        let rpc_err = rpc::Error::NotFound("test".to_string(), "test".to_string());
+        let res =
+            resolve_source_and_sequence_fallback(Ok(account.clone()), Some(Err(rpc_err)), false);
+        assert!(matches!(res, Err(Error::Rpc(_))));
     }
 }
