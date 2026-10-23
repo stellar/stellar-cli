@@ -125,7 +125,8 @@ export class Client extends ContractClient {{
   public readonly fromJSON = {{
     {from_jsons}
   }}
-}}"#,
+}}
+export default Client;"#,
     )
 }
 
@@ -735,6 +736,15 @@ mod tests {
         let result = parse_arg_to_scval(&input);
         assert!(!result.contains(DOC_TEST));
         assert!(!result.contains(METHOD_TEST));
+    }
+
+    #[test]
+    fn test_generate_includes_export_default_client() {
+        let output = generate(&[]);
+        assert!(
+            output.contains("export default Client;"),
+            "Generated TypeScript bindings must include 'export default Client;'"
+        );
     }
 
     #[test]
