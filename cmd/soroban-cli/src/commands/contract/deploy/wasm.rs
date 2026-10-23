@@ -22,12 +22,13 @@ use crate::commands::tx::fetch;
 use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{
-        contract::{self, arg_parsing, build, id::wasm::get_contract_id, upload},
+        contract::{self, arg_parsing, build, extend, id::wasm::get_contract_id, upload},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         HEADING_TRANSACTION,
     },
-    config::{self, data, locator, network},
+    config::{self, alias, data, locator, network},
+    key,
     print::Print,
     rpc,
     utils::{self, rpc::get_remote_wasm_from_hash},
@@ -72,6 +73,9 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+    /// Number of ledgers to extend the contract instance TTL after deploying
+    #[arg(long, visible_alias = "ledgers-to-expire")]
+    pub ledgers_to_extend: Option<u32>,
     /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
@@ -86,6 +90,9 @@ pub struct Cmd {
 pub enum Error {
     #[error(transparent)]
     Install(#[from] upload::Error),
+
+    #[error(transparent)]
+    Extend(#[from] extend::Error),
 
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
@@ -346,6 +353,7 @@ impl Cmd {
                     auth_mode: self.auth_mode.clone(),
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
+                    ledgers_to_extend: self.ledgers_to_extend,
                     package: None,
                     build_args: build::BuildArgs::default(),
                 }
@@ -456,6 +464,26 @@ impl Cmd {
             no_cache,
         )
         .await?;
+
+        if let Some(ledgers_to_extend) = self.ledgers_to_extend {
+            extend::Cmd {
+                ledgers_to_extend,
+                ttl_ledger_only: false,
+                key: key::Args {
+                    contract_id: Some(alias::UnresolvedContract::Resolved(contract_id)),
+                    key: None,
+                    key_xdr: None,
+                    wasm: None,
+                    wasm_hash: None,
+                    durability: contract::Durability::Persistent,
+                },
+                config: config.clone(),
+                resources: self.resources.clone(),
+                build_only: self.build_only,
+            }
+            .execute(config, quiet, no_cache)
+            .await?;
+        }
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);
@@ -596,5 +624,28 @@ mod tests {
         let contracts = [built(crate::config::alias::NATIVE)];
 
         assert_eq!(reserved_package_alias(Some(&alias), &contracts), None);
+    }
+
+    #[test]
+    fn parse_ledgers_to_extend_and_expire_alias() {
+        let cmd = Cmd::try_parse_from([
+            "deploy",
+            "--wasm",
+            "test.wasm",
+            "--ledgers-to-extend",
+            "5000",
+        ])
+        .unwrap();
+        assert_eq!(cmd.ledgers_to_extend, Some(5000));
+
+        let cmd_alias = Cmd::try_parse_from([
+            "deploy",
+            "--wasm",
+            "test.wasm",
+            "--ledgers-to-expire",
+            "6000",
+        ])
+        .unwrap();
+        assert_eq!(cmd_alias.ledgers_to_extend, Some(6000));
     }
 }
