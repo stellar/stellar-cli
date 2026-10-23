@@ -149,7 +149,10 @@ pub async fn send_transaction_polling_with_events(
     print: &print::Print,
 ) -> Result<GetTransactionResponse, soroban_rpc::Error> {
     match client.send_transaction_polling(signed_tx).await {
-        Ok(res) => Ok(res),
+        Ok(res) => {
+            crate::log::cost::actual_from_tx_response(&res);
+            Ok(res)
+        }
         Err(e) => {
             // Best-effort: recover the diagnostic events the submission error dropped.
             //
@@ -163,6 +166,7 @@ pub async fn send_transaction_polling_with_events(
                     let events = &resp.events.diagnostic_events;
                     crate::log::event::all(events);
                     crate::log::event::failure(events, print);
+                    crate::log::cost::actual_from_events(events);
                 }
             }
             Err(e)

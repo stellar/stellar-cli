@@ -45,7 +45,11 @@ pub async fn simulate_and_assemble_transaction(
         crate::log::event::all(&sim_res.events()?);
         Err(Error::TransactionSimulationFailed(e.clone()))
     } else {
-        Ok(Assembled::new(tx, sim_res, resource_fee, record_auth)?)
+        let assembled = Assembled::new(tx, sim_res, resource_fee, record_auth)?;
+        if let TransactionExt::V1(SorobanTransactionData { resources, .. }) = &assembled.txn.ext {
+            crate::log::cost::cost(resources);
+        }
+        Ok(assembled)
     }
 }
 
