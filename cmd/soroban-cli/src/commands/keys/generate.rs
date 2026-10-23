@@ -41,10 +41,13 @@ pub struct Cmd {
     #[arg(long, short = 's')]
     pub as_secret: bool,
 
-    /// Save the new key in your OS's credential secure store.
-    ///
-    /// On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
-    #[arg(long)]
+    /// Save the new key in your OS's credential keyring (Keychain on macOS, Credential Manager on Windows, and Secret Service on Linux).
+    #[arg(
+        long = "keyring",
+        visible_alias = "secure-store",
+        alias = "system-keystore",
+        alias = "system"
+    )]
     pub secure_store: bool,
 
     #[command(flatten)]
@@ -144,6 +147,23 @@ impl Cmd {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_generate_clap_accepts_keyring_and_aliases() {
+        use clap::Parser;
+
+        let cmd1 = super::Cmd::try_parse_from(["generate", "test_name", "--keyring"]).unwrap();
+        assert!(cmd1.secure_store);
+
+        let cmd2 = super::Cmd::try_parse_from(["generate", "test_name", "--secure-store"]).unwrap();
+        assert!(cmd2.secure_store);
+
+        let cmd3 =
+            super::Cmd::try_parse_from(["generate", "test_name", "--system-keystore"]).unwrap();
+        assert!(cmd3.secure_store);
+
+        let cmd4 = super::Cmd::try_parse_from(["generate", "test_name", "--system"]).unwrap();
+        assert!(cmd4.secure_store);
+    }
     use crate::config::{address::KeyName, key::Key, secret::Secret};
 
     fn set_up_test() -> (super::locator::Args, super::Cmd, tempfile::TempDir) {

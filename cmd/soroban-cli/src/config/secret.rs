@@ -41,20 +41,23 @@ pub enum Error {
 #[derive(Debug, clap::Args, Clone)]
 #[group(skip)]
 pub struct Args {
-    /// ⚠️ Deprecated, use `--secure-store`. Enter secret (S) key when prompted
+    /// ⚠️ Deprecated, use `--keyring`. Enter secret (S) key when prompted
     #[arg(long)]
     pub secret_key: bool,
 
-    /// ⚠️ Deprecated, use `--secure-store`. Enter key using 12-24 word seed phrase
+    /// ⚠️ Deprecated, use `--keyring`. Enter key using 12-24 word seed phrase
     #[arg(long)]
     pub seed_phrase: bool,
 
-    /// Save the new key in your OS's credential secure store.
-    ///
-    /// On Mac this uses Keychain, on Windows it is Secure Store Service, and on *nix platforms it uses a combination of the kernel keyutils and DBus-based Secret Service.
+    /// Save the new key in your OS's credential keyring (Keychain on macOS, Credential Manager on Windows, and Secret Service on Linux).
     ///
     /// This only supports seed phrases for now.
-    #[arg(long)]
+    #[arg(
+        long = "keyring",
+        visible_alias = "secure-store",
+        alias = "system-keystore",
+        alias = "system"
+    )]
     pub secure_store: bool,
 }
 

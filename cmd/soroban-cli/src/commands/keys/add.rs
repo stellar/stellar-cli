@@ -38,7 +38,7 @@ pub enum Error {
     IdentityAlreadyExists(String),
 
     #[error(
-        "--secure-store only supports seed phrases; \
+        "--keyring (or --secure-store) only supports seed phrases; \
          unset STELLAR_SECRET_KEY or provide a seed phrase instead"
     )]
     SecureStoreRequiresSeedPhrase,
@@ -359,6 +359,32 @@ mod tests {
 
         let err = Cmd::try_parse_from(["add", "test_name", "--ledger", "--secure-store"])
             .expect_err("clap must reject --ledger + --secure-store");
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn test_clap_accepts_keyring_and_aliases() {
+        use clap::Parser;
+
+        let cmd1 = Cmd::try_parse_from(["add", "test_name", "--keyring"]).unwrap();
+        assert!(cmd1.secrets.secure_store);
+
+        let cmd2 = Cmd::try_parse_from(["add", "test_name", "--secure-store"]).unwrap();
+        assert!(cmd2.secrets.secure_store);
+
+        let cmd3 = Cmd::try_parse_from(["add", "test_name", "--system-keystore"]).unwrap();
+        assert!(cmd3.secrets.secure_store);
+
+        let cmd4 = Cmd::try_parse_from(["add", "test_name", "--system"]).unwrap();
+        assert!(cmd4.secrets.secure_store);
+    }
+
+    #[test]
+    fn test_clap_rejects_ledger_with_keyring() {
+        use clap::Parser;
+
+        let err = Cmd::try_parse_from(["add", "test_name", "--ledger", "--keyring"])
+            .expect_err("clap must reject --ledger + --keyring");
         assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
