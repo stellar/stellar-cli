@@ -21,6 +21,11 @@ Set a default network once instead of repeating `--network`, `--rpc-url`, and `-
 
 After this, other commands use that network by default and you can omit the network flags entirely.
 
+> **Precedence Note**: CLI values follow strict precedence:
+> 1. CLI options/flags (e.g. `--network <name>`) take highest precedence.
+> 2. Environment variables (e.g. `STELLAR_NETWORK`, `STELLAR_RPC_URL`) override configured defaults.
+> 3. CLI configuration defaults set via `stellar network use` apply when neither flags nor env vars are provided.
+
 - List configured networks: `stellar network ls`
 - Add a custom network: `stellar network add <name> --rpc-url <url> --network-passphrase <passphrase>`
 - Clear the default: `stellar network unset`
@@ -35,6 +40,11 @@ Create named identities and select a default with `stellar keys use`, just like 
     stellar keys use alice               # sign and pay as alice by default
 
 After `stellar keys use`, other commands sign and pay with that identity, so you can omit the source flag entirely.
+
+> **Precedence Note**: Identity values follow strict precedence:
+> 1. CLI options/flags (e.g. `--source <name>`) take highest precedence.
+> 2. Environment variables (e.g. `STELLAR_ACCOUNT`) override configured defaults.
+> 3. CLI configuration defaults set via `stellar keys use` apply when neither flags nor env vars are provided.
 
 - List identities: `stellar keys ls`
 - Show an address: `stellar keys address alice`

@@ -204,3 +204,34 @@ fn set_env_value_from_config<T: std::fmt::Display>(name: &str, value: Option<T>)
         std::env::set_var(format!("{name}_SOURCE"), "use");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_set_env_value_from_config_precedence() {
+        let test_var = "TEST_STELLAR_PRECEDENCE_VAR";
+        let test_var_source = format!("{test_var}_SOURCE");
+
+        // Clean up before test
+        std::env::remove_var(test_var);
+        std::env::remove_var(&test_var_source);
+
+        // 1. When env is unset, config default sets the env var with SOURCE='use'
+        set_env_value_from_config(test_var, Some("config_default_val"));
+        assert_eq!(std::env::var(test_var).unwrap(), "config_default_val");
+        assert_eq!(std::env::var(&test_var_source).unwrap(), "use");
+
+        // 2. When env var is explicitly set, config does NOT override it (env > config)
+        std::env::set_var(test_var, "explicit_env_val");
+        std::env::remove_var(&test_var_source);
+        set_env_value_from_config(test_var, Some("new_config_val"));
+        assert_eq!(std::env::var(test_var).unwrap(), "explicit_env_val");
+        assert!(std::env::var(&test_var_source).is_err());
+
+        // Clean up
+        std::env::remove_var(test_var);
+        std::env::remove_var(&test_var_source);
+    }
+}

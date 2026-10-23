@@ -160,8 +160,15 @@ pub enum Cmd {
 
     /// Prints the environment variables
     ///
-    /// Prints to stdout in a format that can be used as .env file. Environment
-    /// variables have precedence over defaults.
+    /// Prints to stdout in a format that can be used as .env file.
+    ///
+    /// Configuration precedence in the CLI:
+    /// 1. Command-line flags and options (e.g. `--network`, `--source`)
+    /// 2. Environment variables (e.g. `STELLAR_NETWORK`, `STELLAR_ACCOUNT`)
+    /// 3. CLI configuration defaults (set via `stellar network use`, `stellar keys use`, or `config.toml`)
+    /// 4. Built-in defaults
+    ///
+    /// Environment variables have precedence over CLI configuration defaults.
     ///
     /// By default, secret values are concealed. To display them, use `--reveal`.
     ///
@@ -185,6 +192,12 @@ pub enum Cmd {
     Container(container::Cmd),
 
     /// Manage CLI configuration
+    ///
+    /// Configuration precedence in the CLI:
+    /// 1. Command-line flags and options (highest precedence)
+    /// 2. Environment variables (e.g. `STELLAR_NETWORK`, `STELLAR_ACCOUNT`)
+    /// 3. CLI configuration defaults (set via `stellar network/keys/fees use` or `config.toml`)
+    /// 4. Built-in defaults
     #[command(subcommand)]
     Config(cfg::Cmd),
 
