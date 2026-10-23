@@ -17,7 +17,7 @@ use std::{
 use stellar_xdr::{
     self as xdr, AccountId, Asset, BucketEntry, ConfigSettingEntry, ContractExecutable, Frame,
     Hash, LedgerEntryData, LedgerHeaderHistoryEntry, LedgerKey, Limited, Limits, ReadXdr,
-    ScAddress, ScContractInstance, ScVal,
+    ScAddress, ScVal,
 };
 use tokio::fs::OpenOptions;
 use tokio::io::{AsyncRead, AsyncReadExt, BufReader};
@@ -189,6 +189,23 @@ const MAX_BUCKET_DECOMPRESSED_SIZE: u64 = 10 * 1024 * 1024 * 1024;
 /// Maximum decompressed size for ledger header files (100 MiB).
 const MAX_LEDGER_HEADER_DECOMPRESSED_SIZE: u64 = 100 * 1024 * 1024;
 
+#[derive(Default, Debug, Clone)]
+struct SearchInputs {
+    account_ids: HashSet<AccountId>,
+    contract_ids: HashSet<ScAddress>,
+    contract_data_keys: HashSet<(ScAddress, ScVal)>,
+    wasm_hashes: HashSet<Hash>,
+}
+
+impl SearchInputs {
+    pub fn is_empty(&self) -> bool {
+        self.account_ids.is_empty()
+            && self.contract_ids.is_empty()
+            && self.contract_data_keys.is_empty()
+            && self.wasm_hashes.is_empty()
+    }
+}
+
 impl Cmd {
     #[allow(clippy::too_many_lines)]
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
@@ -255,21 +272,6 @@ impl Cmd {
         // the higher level bucket should be used.
         let mut seen = HashSet::new();
 
-        #[allow(clippy::items_after_statements)]
-        #[derive(Default)]
-        struct SearchInputs {
-            account_ids: HashSet<AccountId>,
-            contract_ids: HashSet<ScAddress>,
-            wasm_hashes: HashSet<Hash>,
-        }
-        impl SearchInputs {
-            pub fn is_empty(&self) -> bool {
-                self.account_ids.is_empty()
-                    && self.contract_ids.is_empty()
-                    && self.wasm_hashes.is_empty()
-            }
-        }
-
         // Search the buckets using the user inputs as the starting inputs.
         let (account_ids, contract_ids): (HashSet<AccountId>, HashSet<ScAddress>) = self
             .address
@@ -281,6 +283,7 @@ impl Cmd {
         let mut current = SearchInputs {
             account_ids,
             contract_ids,
+            contract_data_keys: HashSet::new(),
             wasm_hashes: self.wasm_hashes.iter().cloned().collect(),
         };
         let mut next = SearchInputs::default();
@@ -291,9 +294,10 @@ impl Cmd {
             }
 
             print.infoln(format!(
-                "Searching for {} accounts, {} contracts, {} wasms",
+                "Searching for {} accounts, {} contracts, {} contract data keys, {} wasms",
                 current.account_ids.len(),
                 current.contract_ids.len(),
+                current.contract_data_keys.len(),
                 current.wasm_hashes.len(),
             ));
 
@@ -347,7 +351,12 @@ impl Cmd {
                     let keep = match &key {
                         LedgerKey::Account(k) => current.account_ids.contains(&k.account_id),
                         LedgerKey::Trustline(k) => current.account_ids.contains(&k.account_id),
-                        LedgerKey::ContractData(k) => current.contract_ids.contains(&k.contract),
+                        LedgerKey::ContractData(k) => {
+                            current.contract_ids.contains(&k.contract)
+                                || current
+                                    .contract_data_keys
+                                    .contains(&(k.contract.clone(), k.key.clone()))
+                        }
                         LedgerKey::ContractCode(e) => current.wasm_hashes.contains(&e.hash),
                         LedgerKey::ConfigSetting(_) => true,
                         _ => false,
@@ -380,40 +389,74 @@ impl Cmd {
                             // any filtered contract is collected too in the
                             // second pass.
                             if e.key == ScVal::LedgerKeyContractInstance {
-                                match &e.val {
-                                    ScVal::ContractInstance(ScContractInstance {
-                                        executable: ContractExecutable::Wasm(hash),
-                                        ..
-                                    }) if !current.wasm_hashes.contains(hash) => {
-                                        next.wasm_hashes.insert(hash.clone());
-                                        print.infoln(format!(
-                                            "Adding wasm {} to search",
-                                            hex::encode(hash)
-                                        ));
-                                    }
-                                    ScVal::ContractInstance(ScContractInstance {
-                                        executable: ContractExecutable::StellarAsset,
-                                        storage: Some(storage),
-                                    }) => {
-                                        if let Some(name) =
-                                            get_name_from_stellar_asset_contract_storage(storage)
-                                        {
-                                            let asset: builder::Asset = name.parse()?;
-                                            if let Some(issuer) = match asset
-                                                .resolve(&global_args.locator)?
-                                            {
-                                                Asset::Native => None,
-                                                Asset::CreditAlphanum4(a4) => Some(a4.issuer),
-                                                Asset::CreditAlphanum12(a12) => Some(a12.issuer),
-                                            } {
+                                if let ScVal::ContractInstance(instance) = &e.val {
+                                    match &instance.executable {
+                                        ContractExecutable::Wasm(hash) => {
+                                            if !current.wasm_hashes.contains(hash) {
+                                                next.wasm_hashes.insert(hash.clone());
                                                 print.infoln(format!(
-                                                    "Adding asset issuer {issuer} to search"
+                                                    "Adding wasm {} to search",
+                                                    hex::encode(hash)
                                                 ));
-                                                next.account_ids.insert(issuer);
+                                            }
+                                        }
+                                        ContractExecutable::StellarAsset => {
+                                            if let Some(storage) = &instance.storage {
+                                                if let Some(name) =
+                                                    get_name_from_stellar_asset_contract_storage(
+                                                        storage,
+                                                    )
+                                                {
+                                                    let asset: builder::Asset = name.parse()?;
+                                                    if let Some(issuer) =
+                                                        match asset.resolve(&global_args.locator)? {
+                                                            Asset::Native => None,
+                                                            Asset::CreditAlphanum4(a4) => {
+                                                                Some(a4.issuer)
+                                                            }
+                                                            Asset::CreditAlphanum12(a12) => {
+                                                                Some(a12.issuer)
+                                                            }
+                                                        }
+                                                    {
+                                                        print.infoln(format!(
+                                                            "Adding asset issuer {issuer} to search"
+                                                        ));
+                                                        next.account_ids.insert(issuer);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        ContractExecutable::ExternalRef(external_ref) => {
+                                            let data_key = (
+                                                external_ref.executable_owner.clone(),
+                                                ScVal::ExecutableTag(external_ref.tag.clone()),
+                                            );
+                                            if !current.contract_data_keys.contains(&data_key) {
+                                                print.infoln(format!(
+                                                    "Adding executable reference entry for owner {} tag {} to search",
+                                                    external_ref.executable_owner,
+                                                    soroban_spec_tools::sanitize(&String::from_utf8_lossy(
+                                                        external_ref.tag.as_slice()
+                                                    ))
+                                                ));
+                                                next.contract_data_keys.insert(data_key);
                                             }
                                         }
                                     }
-                                    _ => {}
+                                }
+                            } else if let ScVal::ExecutableTag(_) = &e.key {
+                                if let ScVal::Bytes(bytes) = &e.val {
+                                    if let Ok(hash_bytes) = <[u8; 32]>::try_from(bytes.as_slice()) {
+                                        let hash = Hash(hash_bytes);
+                                        if !current.wasm_hashes.contains(&hash) {
+                                            print.infoln(format!(
+                                                "Adding wasm {} from external ref to search",
+                                                hex::encode(&hash)
+                                            ));
+                                            next.wasm_hashes.insert(hash);
+                                        }
+                                    }
                                 }
                             }
                             keep
@@ -824,5 +867,37 @@ mod test {
             matches!(err, Error::DecompressedSizeLimitExceeded { .. }),
             "expected DecompressedSizeLimitExceeded, got: {err}"
         );
+    }
+    #[test]
+    fn test_search_inputs_external_ref_workflow() {
+        use stellar_xdr::{ContractDataDurability, ContractId, LedgerKeyContractData, ScString};
+
+        let mut inputs = SearchInputs::default();
+        assert!(inputs.is_empty());
+
+        let owner = ScAddress::Contract(ContractId(Hash([10u8; 32])));
+        let tag = ScString("tag-v1".try_into().unwrap());
+        let data_key = (owner.clone(), ScVal::ExecutableTag(tag.clone()));
+
+        inputs.contract_data_keys.insert(data_key);
+        assert!(!inputs.is_empty());
+
+        // Check keep condition
+        let lk = LedgerKey::ContractData(LedgerKeyContractData {
+            contract: owner,
+            key: ScVal::ExecutableTag(tag),
+            durability: ContractDataDurability::Persistent,
+        });
+
+        let keep = match &lk {
+            LedgerKey::ContractData(k) => {
+                inputs.contract_ids.contains(&k.contract)
+                    || inputs
+                        .contract_data_keys
+                        .contains(&(k.contract.clone(), k.key.clone()))
+            }
+            _ => false,
+        };
+        assert!(keep);
     }
 }
