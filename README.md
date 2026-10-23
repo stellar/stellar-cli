@@ -10,6 +10,7 @@ This repo is home to the Stellar CLI, the command-line multi-tool for running an
 - [Cookbook](#cookbook)
 - [Install](#install)
 - [Autocomplete](#autocomplete)
+- [Configuration and Precedence](#configuration-and-precedence)
 - [Latest Release](#latest-release)
 - [Upcoming Features](#upcoming-features)
 - [To Contribute](#to-contribute)
@@ -108,6 +109,21 @@ To enable autocomplete permanently, run:
 
 ```bash
 echo "source <(stellar completion --shell bash)" >> ~/.bashrc
+```
+
+## Configuration and Precedence
+
+The Stellar CLI resolves configuration values (such as the target network, source identity account, and fees) according to the following strict order of precedence:
+
+1. **Command-Line Arguments & Flags**: Options passed directly on the command line (e.g. `--network testnet`, `--source alice`) always take highest precedence.
+2. **Environment Variables**: Environment variables (e.g. `STELLAR_NETWORK`, `STELLAR_ACCOUNT`, `STELLAR_INCLUSION_FEE`) override configured file defaults.
+3. **CLI Configuration Defaults**: Defaults configured via `stellar network use <name>`, `stellar keys use <name>`, `stellar fees use <stroops>`, or saved in `config.toml`.
+4. **Built-in Defaults**: Built-in fallback defaults (e.g. `testnet` network, 100 stroops base inclusion fee).
+
+To inspect the currently active environment variables and defaults along with their source, run:
+
+```sh
+stellar env
 ```
 
 ## Latest Release

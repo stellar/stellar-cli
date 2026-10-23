@@ -3,7 +3,13 @@ mod migrate;
 
 use clap::Parser;
 
-/// Migrate config from previous versions.
+/// Manage CLI configuration.
+///
+/// Precedence order for CLI configuration:
+/// 1. Command-line options & flags (e.g. `--network`, `--source`)
+/// 2. Environment variables (e.g. `STELLAR_NETWORK`, `STELLAR_ACCOUNT`)
+/// 3. CLI configuration defaults (set via `stellar network/keys/fees use` or `config.toml`)
+/// 4. Built-in defaults
 #[derive(Debug, Parser)]
 pub enum Cmd {
     /// Migrate the local configuration to the global directory.
