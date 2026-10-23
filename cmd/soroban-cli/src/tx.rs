@@ -4,10 +4,10 @@ use crate::{
     config::{self, data, network},
     print, resources,
     signer::{self, Signer},
-    utils::transaction_env_hash,
+    utils::{transaction_env_hash, XDR_DEPTH_LIMIT},
     xdr::{
-        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Hash,
-        Transaction, TransactionEnvelope,
+        self, FeeBumpTransaction, FeeBumpTransactionExt, FeeBumpTransactionInnerTx, Hash, Limits,
+        Transaction, TransactionEnvelope, WriteXdr,
     },
 };
 use soroban_rpc::GetTransactionResponse;
@@ -108,13 +108,39 @@ where
     print.globeln("Sending transaction…");
 
     // returns an error if the transaction fails
-    let res = send_transaction_polling_with_events(
+    let res = match send_transaction_polling_with_events(
         client,
         &signed_tx,
         &network.network_passphrase,
         &print,
     )
-    .await?;
+    .await
+    {
+        Ok(res) => res,
+        Err(send_err) => {
+            if !no_cache {
+                // If submission fails, save the signed transaction envelope to the action log
+                // so the user can inspect or retry it without having to re-sign.
+                if let Ok(envelope_xdr) = signed_tx.to_xdr_base64(Limits::depth(XDR_DEPTH_LIMIT)) {
+                    let tx_hash = transaction_env_hash(&signed_tx, &network.network_passphrase)
+                        .map(hex::encode)
+                        .ok();
+                    let failed_action = data::Action::new_failed_send(envelope_xdr, tx_hash);
+                    if let Ok(rpc_url) = network.rpc_uri() {
+                        if let Ok(ulid) = data::write(failed_action, &rpc_url) {
+                            print.infoln(format!(
+                                "Signed transaction saved to action log with ID: {ulid}"
+                            ));
+                            print.infoln(format!(
+                                "To inspect or retry without re-signing: stellar cache actionlog read --id {ulid}"
+                            ));
+                        }
+                    }
+                }
+            }
+            return Err(send_err.into());
+        }
+    };
 
     print.checkln("Transaction submitted successfully!");
 
