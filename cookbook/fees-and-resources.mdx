@@ -1,0 +1,232 @@
+---
+title: Resource and Inclusion Fees
+hide_table_of_contents: true
+description: Understand and configure inclusion fees, Soroban resource fees, and fee diagnostics using the Stellar CLI
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/fees-and-resources.mdx
+---
+
+Stellar separates transaction fees into two distinct categories: **Inclusion Fees** and **Resource Fees**. Understanding how both work helps optimize transaction delivery, avoid out-of-gas errors, and prevent unnecessary costs.
+
+This cookbook explains each fee type, demonstrates when and how to use each CLI argument, and provides recipes for monitoring and troubleshooting fees.
+
+---
+
+## Fee Types Overview
+
+### 1. Inclusion Fee (Network Inclusion)
+- **What it is:** The fee paid to network validators to include your transaction in a ledger block.
+- **Applicable to:** All Stellar transactions (classic operations, payments, and Soroban smart contract calls).
+- **Pricing Model:** Determined by network demand (surge pricing).
+- **CLI Default:** `100` stroops (minimum base fee).
+- **Unit:** **Stroops** (1 XLM = 10,000,000 stroops; 1 stroop = 0.0000001 XLM).
+
+### 2. Resource Fee (Soroban VM & State)
+- **What it is:** The fee covering smart contract execution resources consumed on the Soroban Virtual Machine.
+- **Applicable to:** Soroban transactions (contract invocations, deployments, WASM uploads, and state restore/extend operations).
+- **Components:**
+  - **Non-Refundable Fee:** CPU instructions (`cpu_insn`), RAM allocations (`mem_byte`), ledger read/write bytes, and transaction size.
+  - **Refundable Fee:** Storage rent deposits, return values, and emitted contract events. Unused refundable amounts are automatically credited back to your account upon ledger commitment.
+- **CLI Default:** Automatically estimated by simulating the transaction against the network RPC (`simulateTransaction`).
+
+---
+
+## Quick Reference: CLI Fee Flags and Commands
+
+| Flag / Command | Category | Default | When to Use |
+|---|---|---|---|
+| `--inclusion-fee <STROOPS>` | Inclusion | `100` stroops | Increase inclusion priority during network surge pricing |
+| `--fee <STROOPS>` | Inclusion | `100` stroops | *(Deprecated)* Legacy alias for `--inclusion-fee` |
+| `--resource-fee <STROOPS>` | Resource | Auto (RPC simulation) | Manually override the simulated Soroban resource fee |
+| `--instruction-leeway <COUNT>` | Resource | `0` | Provide extra instruction headroom for dynamic execution paths |
+| `--cost` | Diagnostic | `false` | Display a detailed breakdown table of consumed resources on `stderr` |
+| `stellar fees stats` | Network Query | N/A | Query current network fee percentiles (min, p50, p90, max) |
+| `stellar fees use` | Configuration | N/A | Save a default inclusion fee globally or per network |
+| `stellar fees unset` | Configuration | N/A | Reset configured default inclusion fee back to 100 stroops |
+| `stellar tx fetch fee` | Post-Tx Analysis | N/A | Compare proposed vs actual charged fees for a confirmed transaction |
+
+---
+
+## Recipes & Examples
+
+### 1. Set a Custom Inclusion Fee for Faster Inclusion
+
+When network traffic is high or the base fee increases due to surge pricing, transactions with low inclusion fees might be delayed or rejected with `tx_insufficient_fee`.
+
+Specify `--inclusion-fee` (in stroops) to offer a higher fee:
+
+```bash cookbooktest.ignore
+stellar contract invoke \
+    --id <CONTRACT_ID> \
+    --source alice \
+    --network testnet \
+    --inclusion-fee 10000 \
+    -- hello --world
+```
+
+You can also use this flag with classic transaction commands:
+
+```bash cookbooktest.ignore
+stellar tx new payment \
+    --source alice \
+    --destination bob \
+    --amount 100 \
+    --asset native \
+    --inclusion-fee 5000 \
+    --network testnet
+```
+
+:::tip
+You can also set the `STELLAR_INCLUSION_FEE` environment variable to apply a custom inclusion fee across all commands in your terminal session:
+```bash cookbooktest.ignore
+export STELLAR_INCLUSION_FEE=5000
+```
+:::
+
+---
+
+### 2. Inspect Detailed Resource Consumption with `--cost`
+
+To see exactly how many CPU instructions, memory bytes, and storage operations your contract invocation consumes, pass the `--cost` flag:
+
+```bash cookbooktest.ignore
+stellar contract invoke \
+    --id <CONTRACT_ID> \
+    --source alice \
+    --network testnet \
+    --cost \
+    -- hello --world
+```
+
+Example stderr output:
+
+```text
+┌──────────────────────────────┬──────────────┬──────────────────┐
+│ Resource                     │ Consumed     │ Limit / Budget   │
+├──────────────────────────────┼──────────────┼──────────────────┤
+│ CPU Instructions             │ 1,245,830    │ 100,000,000      │
+│ Memory Bytes                 │ 645,120      │ 41,943,040       │
+│ Ledger Read Bytes            │ 12,480       │ 200,000          │
+│ Ledger Write Bytes           │ 1,024        │ 131,072          │
+│ Ledger Read Entries          │ 4            │ 40               │
+│ Ledger Write Entries         │ 1            │ 25               │
+├──────────────────────────────┼──────────────┼──────────────────┤
+│ Non-Refundable Fee Charged   │ 60,358       │ stroops          │
+│ Refundable Fee Charged       │ 79           │ stroops          │
+│ Total Resource Fee           │ 60,437       │ stroops          │
+└──────────────────────────────┴──────────────┴──────────────────┘
+```
+
+This breakdown is invaluable for gas optimization, contract benchmarking, and auditing storage rent impact.
+
+---
+
+### 3. Add Instruction Leeway for Dynamic Contracts
+
+Soroban simulates contract execution before generating the transaction envelope. If your contract's runtime behavior depends on external state (such as price oracles, automated market makers, or dynamic loops), real execution might require slightly more instructions than the simulation anticipated.
+
+Use `--instruction-leeway` to allocate additional instruction headroom:
+
+```bash cookbooktest.ignore
+stellar contract invoke \
+    --id <CONTRACT_ID> \
+    --source alice \
+    --network testnet \
+    --instruction-leeway 50000 \
+    -- swap --amount_in 1000 --min_out 950
+```
+
+This prevents `ExceededBudget` errors when conditions slightly change between simulation and inclusion.
+
+---
+
+### 4. Overriding the Resource Fee Manually
+
+By default, the CLI uses the `min_resource_fee` returned by RPC simulation. If you want to specify an exact resource budget:
+
+```bash cookbooktest.ignore
+stellar contract invoke \
+    --id <CONTRACT_ID> \
+    --source alice \
+    --network testnet \
+    --resource-fee 150000 \
+    -- my_method
+```
+
+:::warning
+If `--resource-fee` is set lower than the minimum fee required by the contract execution, the network will reject the transaction with an invalid resource fee error.
+:::
+
+---
+
+### 5. Check Network Fee Statistics (`fees stats`)
+
+To view real-time fee percentiles from the RPC before submitting critical transactions:
+
+```bash cookbooktest.ignore
+stellar fees stats --network testnet
+```
+
+Output:
+
+```text
+Max Soroban Inclusion Fee: 5000
+Max Inclusion Fee: 1000
+Latest Ledger: 341295
+```
+
+To output full percentiles (p10 through p99) in JSON format for automated scripts:
+
+```bash cookbooktest.ignore
+stellar fees stats --network testnet --output json-formatted
+```
+
+---
+
+### 6. Configure a Persistent Default Inclusion Fee (`fees use` / `fees unset`)
+
+Instead of specifying `--inclusion-fee` on every single command, configure a default inclusion fee in your CLI settings.
+
+#### Set a fixed stroop amount:
+
+```bash cookbooktest.ignore
+stellar fees use --amount 1000
+```
+
+#### Set a dynamic fee based on network statistics:
+
+You can bind your default fee to a specific percentile from recent network ledgers (e.g. `p50`, `p70`, `p90`, `max`):
+
+```bash cookbooktest.ignore
+stellar fees use --fee-metric p50 --network testnet
+```
+
+#### Reset to system default (100 stroops):
+
+```bash cookbooktest.ignore
+stellar fees unset
+```
+
+---
+
+### 7. Analyze Past Transaction Fees (`tx fetch fee`)
+
+To review the exact breakdown of fees proposed vs actually charged for any past transaction:
+
+```bash cookbooktest.ignore
+stellar tx fetch fee --hash <TRANSACTION_HASH> --network testnet
+```
+
+This displays a comparison table showing:
+- **Inclusion Fee:** Proposed vs charged.
+- **Resource Fee:** Proposed vs charged.
+- **Non-Refundable vs Refundable Breakdown:** Exact costs for CPU, storage read/write, transaction size, and storage rent.
+- **Refunded Amount:** Excess refundable fee returned to your account.
+
+---
+
+## Best Practices
+
+1. **Keep `--inclusion-fee` at 100 stroops for development:** On testnet or local networks, 100 stroops is almost always sufficient.
+2. **Use `--cost` during contract development:** Always verify the storage footprint and CPU instruction count before deploying to Mainnet to avoid unexpected rent costs.
+3. **Use `--instruction-leeway` for volatile contracts:** When interacting with liquidity pools or time-dependent logic, add 20,000–100,000 instructions of leeway.
+4. **Prefer `--inclusion-fee` over deprecated `--fee`:** `--inclusion-fee` provides explicit clarity and avoids ambiguity with resource fees.
