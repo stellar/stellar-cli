@@ -135,6 +135,15 @@ pub fn build_host_function_parameters_by_position(
 ) -> Result<HostFunctionParameters, Error> {
     let spec = Spec(Some(spec_entries.to_vec()));
     let func = get_function_spec(&spec, function_name)?;
+    if func
+        .inputs
+        .iter()
+        .any(|i| sanitize(&i.name.to_utf8_string_lossy()) == "help")
+    {
+        print.warnln(format!(
+            "Contract function '{function_name}' has a parameter named 'help', which shadows the default help flag."
+        ));
+    }
 
     // Positional mapping requires the arity to match exactly: every parameter
     // gets a value and no value is left over. A contract whose function deviates
@@ -193,7 +202,7 @@ fn build_host_function_parameters_with_filter(
 ) -> Result<HostFunctionParameters, Error> {
     let spec = Spec(Some(spec_entries.to_vec()));
     let cmd = build_clap_command(&spec, filter_constructor)?;
-    let (function, matches_) = parse_command_matches(cmd, slop)?;
+    let (function, matches_) = parse_command_matches(cmd, slop, Some(&spec), print)?;
     let func = get_function_spec(&spec, &function)?;
     let (parsed_args, signers) = parse_function_arguments(&func, &matches_, &spec, config, print)?;
     let invoke_args = build_invoke_contract_args(contract_id, &function, parsed_args)?;
@@ -228,9 +237,11 @@ fn build_clap_command(spec: &Spec, filter_constructor: bool) -> Result<clap::Com
 fn parse_command_matches(
     mut cmd: clap::Command,
     slop: &[OsString],
+    spec: Option<&Spec>,
+    print: &Print,
 ) -> Result<(String, clap::ArgMatches), Error> {
     let long_help = cmd.render_long_help();
-    let maybe_matches = cmd.try_get_matches_from(slop);
+    let maybe_matches = cmd.clone().try_get_matches_from(slop);
 
     let Some((function, matches_)) = (match maybe_matches {
         Ok(mut matches) => matches.remove_subcommand(),
@@ -238,6 +249,27 @@ fn parse_command_matches(
             if e.kind() == DisplayHelp {
                 return Err(HelpMessage(e.to_string()));
             }
+
+            if let Some(spec) = spec {
+                if let Some(first) = slop.first().and_then(|s| s.to_str()) {
+                    if let Ok(func) = get_function_spec(spec, first) {
+                        let has_help = func
+                            .inputs
+                            .iter()
+                            .any(|i| sanitize(&i.name.to_utf8_string_lossy()) == "help");
+                        let is_help_flag = slop.iter().any(|s| s == "-h" || s == "--help");
+                        if has_help && is_help_flag {
+                            print.warnln(format!(
+                                "Contract function '{first}' has a parameter named 'help', which shadows the default help flag."
+                            ));
+                            if let Some(subcmd) = cmd.find_subcommand_mut(first) {
+                                return Err(HelpMessage(subcmd.render_long_help().to_string()));
+                            }
+                        }
+                    }
+                }
+            }
+
             e.exit();
         }
     }) else {
@@ -274,6 +306,17 @@ fn parse_function_arguments(
     config: &config::Args,
     print: &Print,
 ) -> Result<(Vec<ScVal>, Vec<Signer>), Error> {
+    let function_name = func.name.to_utf8_string_lossy();
+    if func
+        .inputs
+        .iter()
+        .any(|i| sanitize(&i.name.to_utf8_string_lossy()) == "help")
+    {
+        print.warnln(format!(
+            "Contract function '{function_name}' has a parameter named 'help', which shadows the default help flag."
+        ));
+    }
+
     let mut parsed_args = Vec::with_capacity(func.inputs.len());
     let mut signers = Vec::<Signer>::new();
 
@@ -472,6 +515,9 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
     let long_doc: &'static str = Box::leak(arg_file_help(doc).into_boxed_str());
 
     cmd = cmd.about(Some(doc)).long_about(long_doc);
+    if inputs_map.keys().any(|k| k == "help") {
+        cmd = cmd.disable_help_flag(true);
+    }
     for (name, type_) in inputs_map {
         let mut arg = clap::Arg::new(name);
         let file_arg_name = fmt_arg_file_name(name);
@@ -493,6 +539,10 @@ pub fn build_custom_cmd(name: &str, spec: &Spec) -> Result<clap::Command, Error>
             .hide(true)
             .value_parser(value_parser!(PathBuf))
             .conflicts_with(name);
+
+        if name == "help" {
+            arg = arg.help("Warning: parameter named 'help' shadows the default help flag");
+        }
 
         if let Some(value_name) = spec.arg_value_name(type_, 0) {
             let value_name: &'static str = Box::leak(sanitize(&value_name).into_boxed_str());
@@ -1916,6 +1966,82 @@ mod tests {
         assert!(
             bad_chars.is_empty(),
             "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
+        );
+    }
+
+    #[test]
+    fn test_function_with_parameter_named_help_handles_short_help_and_invocation() {
+        use crate::xdr::ScSpecFunctionInputV0;
+
+        let spec_entries = vec![ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: xdr::StringM::default(),
+            name: "hello".try_into().unwrap(),
+            inputs: vec![ScSpecFunctionInputV0 {
+                doc: xdr::StringM::default(),
+                name: "help".try_into().unwrap(),
+                type_: ScSpecTypeDef::Symbol,
+            }]
+            .try_into()
+            .unwrap(),
+            outputs: vec![ScSpecTypeDef::Symbol].try_into().unwrap(),
+        })];
+
+        let contract_id = stellar_strkey::Contract([0u8; 32]);
+        let config = crate::config::Args::default();
+        let print = Print::new(true);
+
+        // 1. Invoking with -h should return HelpMessage containing the subcommand's help
+        let slop_help = vec![OsString::from("hello"), OsString::from("-h")];
+        let res_help = build_host_function_parameters(
+            &contract_id,
+            &slop_help,
+            &spec_entries,
+            &config,
+            &print,
+        );
+        match res_help {
+            Err(Error::HelpMessage(msg)) => {
+                assert!(
+                    msg.contains("--help <Symbol>"),
+                    "help output should contain the help parameter info: {msg}"
+                );
+            }
+            _ => panic!("expected HelpMessage for -h"),
+        }
+
+        // 2. Invoking with --help as an argument with value should succeed
+        let slop_invoke = vec![
+            OsString::from("hello"),
+            OsString::from("--help"),
+            OsString::from("foo"),
+        ];
+        let res_invoke = build_host_function_parameters(
+            &contract_id,
+            &slop_invoke,
+            &spec_entries,
+            &config,
+            &print,
+        );
+        assert!(
+            res_invoke.is_ok(),
+            "invocation with --help <val> should succeed"
+        );
+        let (fn_name, _, invoke_args, _) = res_invoke.unwrap();
+        assert_eq!(fn_name, "hello");
+        assert_eq!(invoke_args.args.len(), 1);
+
+        // 3. Positional invocation with a help parameter should also succeed
+        let positional_res = build_host_function_parameters_by_position(
+            &contract_id,
+            "hello",
+            &["foo".to_string()],
+            &spec_entries,
+            &config,
+            &print,
+        );
+        assert!(
+            positional_res.is_ok(),
+            "positional invocation should succeed"
         );
     }
 }
