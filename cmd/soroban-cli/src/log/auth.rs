@@ -229,4 +229,47 @@ mod tests {
 
         assert_no_control_chars(&format_auth_entry(&entry));
     }
+
+    #[test]
+    fn format_auth_entry_displays_full_tree_with_sub_invocations() {
+        let sub1 = SorobanAuthorizedInvocation {
+            function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+                contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash([1; 32]))),
+                function_name: sc_symbol("transfer"),
+                args: vec![ScVal::U32(500)].try_into().unwrap(),
+            }),
+            sub_invocations: VecM::default(),
+        };
+
+        let sub2 = SorobanAuthorizedInvocation {
+            function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+                contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash([2; 32]))),
+                function_name: sc_symbol("log_event"),
+                args: vec![ScVal::Symbol(sc_symbol("done"))].try_into().unwrap(),
+            }),
+            sub_invocations: VecM::default(),
+        };
+
+        let entry = SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::SourceAccount,
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+                    contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash([0; 32]))),
+                    function_name: sc_symbol("swap"),
+                    args: vec![ScVal::U32(100)].try_into().unwrap(),
+                }),
+                sub_invocations: vec![sub1, sub2].try_into().unwrap(),
+            },
+        };
+
+        let formatted = format_auth_entry(&entry);
+        assert!(formatted.contains("Auth Entry:"));
+        assert!(formatted.contains("Signer: <source account>"));
+        assert!(formatted.contains("Invocation:"));
+        assert!(formatted.contains("Fn: swap"));
+        assert!(formatted.contains("Sub-invocation #0:"));
+        assert!(formatted.contains("Fn: transfer"));
+        assert!(formatted.contains("Sub-invocation #1:"));
+        assert!(formatted.contains("Fn: log_event"));
+    }
 }
