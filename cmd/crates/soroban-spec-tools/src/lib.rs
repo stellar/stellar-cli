@@ -272,7 +272,8 @@ impl Spec {
         serde_json::from_str(s)
             .map_or_else(
                 |e| match t {
-                    ScType::Symbol
+                    ScType::Val
+                    | ScType::Symbol
                     | ScType::String
                     | ScType::Bytes
                     | ScType::BytesN(_)
@@ -367,6 +368,9 @@ impl Spec {
 
             // User defined types parsing
             (ScType::Udt(ScSpecTypeUdt { name }), _) => self.parse_udt(name, v)?,
+
+            // Generic Soroban value parsing
+            (ScType::Val, _) => val_from_json(v)?,
 
             // TODO: Implement the rest of these
             (_, raw) => serde_json::from_value(raw.clone()).map_err(Error::Serde)?,
@@ -781,6 +785,7 @@ impl Spec {
     /// Some types are not yet supported and will cause a panic if supplied
     pub fn sc_object_to_json(&self, val: &ScVal, spec_type: &ScType) -> Result<Value, Error> {
         Ok(match (val, spec_type) {
+            (val, ScType::Val) => to_json(val)?,
             (ScVal::Vec(Some(ScVec(vec_m))), ScType::Vec(type_)) => {
                 self.vec_m_to_json(vec_m, &type_.element_type)?
             }
@@ -995,6 +1000,66 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
         (_, raw) => serde_json::from_value(raw.clone())?,
     };
     Ok(val)
+}
+
+/// # Errors
+/// Might return an error if conversion fails
+pub fn val_from_json(v: &Value) -> Result<ScVal, Error> {
+    // If the input is already a serialized ScVal JSON representation, use it directly
+    if let Ok(sc_val) = serde_json::from_value::<ScVal>(v.clone()) {
+        return Ok(sc_val);
+    }
+    match v {
+        Value::Null => Ok(ScVal::Void),
+        Value::Bool(b) => Ok(ScVal::Bool(*b)),
+        Value::Number(n) => {
+            if let Some(u) = n.as_u64() {
+                if let Ok(u_32) = u32::try_from(u) {
+                    Ok(ScVal::U32(u_32))
+                } else {
+                    Ok(ScVal::U64(u))
+                }
+            } else if let Some(i) = n.as_i64() {
+                if let Ok(i_32) = i32::try_from(i) {
+                    Ok(ScVal::I32(i_32))
+                } else {
+                    Ok(ScVal::I64(i))
+                }
+            } else {
+                Err(Error::InvalidValue(Some(ScType::Val)))
+            }
+        }
+        Value::String(s) => {
+            // Check if string is a valid Stellar Address (G..., C..., M...)
+            if let Ok(addr) = sc_address_from_json(s) {
+                return Ok(addr);
+            }
+            // Fall back to Soroban String
+            let sc_string = ScString(s.as_bytes().to_vec().try_into().map_err(Error::Xdr)?);
+            Ok(ScVal::String(sc_string))
+        }
+        Value::Array(arr) => {
+            let items = arr
+                .iter()
+                .map(val_from_json)
+                .collect::<Result<Vec<_>, _>>()?;
+            let sc_vec: ScVec = items.try_into().map_err(Error::Xdr)?;
+            Ok(ScVal::Vec(Some(sc_vec)))
+        }
+        Value::Object(map) => {
+            let mut entries = Vec::new();
+            for (k, val) in map {
+                let key_sym = ScSymbol(k.as_bytes().to_vec().try_into().map_err(Error::Xdr)?);
+                let sc_val = val_from_json(val)?;
+                entries.push(ScMapEntry {
+                    key: ScVal::Symbol(key_sym),
+                    val: sc_val,
+                });
+            }
+            let sc_map = ScMap::sorted_from(entries).map_err(Error::Xdr)?;
+            Ok(ScVal::Map(Some(sc_map)))
+        }
+    }
 }
 
 /// # Errors
@@ -1306,8 +1371,7 @@ impl Spec {
                     | ScSpecEntry::EventV0(_) => None,
                 }
             }
-            // No specific value name for these yet.
-            ScType::Val => None,
+            ScType::Val => Some("val".to_string()),
         }
     }
 
@@ -1460,8 +1524,7 @@ impl Spec {
             ScType::MuxedAddress => {
                 Some("\"GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF\"".to_string())
             }
-            // No specific value name for these yet.
-            ScType::Val => None,
+            ScType::Val => Some(r#""any_value""#.to_string()),
         }
     }
 
@@ -2683,5 +2746,146 @@ mod tests {
         let spec = Spec::new(&[]);
         let err = spec.find_function("evil\x1b[2J").unwrap_err();
         crate::test_utils::assert_no_control_chars(&format!("{err}"));
+    }
+
+    #[test]
+    fn test_xdr_to_json_bool_with_val_type() {
+        // Regression test for https://github.com/stellar/stellar-cli/issues/2438
+        // When a contract function returns ScType::Val and the runtime value is
+        // ScVal::Bool(false) or ScVal::Bool(true), xdr_to_json should succeed
+        // instead of panicking with "Bool(false,) doesn't have a matching Val".
+        let spec = Spec(None);
+        let result_false = spec.xdr_to_json(&ScVal::Bool(false), &ScType::Val);
+        assert_eq!(result_false.unwrap(), Value::Bool(false));
+
+        let result_true = spec.xdr_to_json(&ScVal::Bool(true), &ScType::Val);
+        assert_eq!(result_true.unwrap(), Value::Bool(true));
+    }
+
+    #[test]
+    fn test_xdr_to_json_all_primitive_variants_with_val_type() {
+        let spec = Spec(None);
+
+        assert_eq!(
+            spec.xdr_to_json(&ScVal::Void, &ScType::Val).unwrap(),
+            Value::Null
+        );
+        assert_eq!(
+            spec.xdr_to_json(&ScVal::I32(-42), &ScType::Val).unwrap(),
+            Value::Number((-42).into())
+        );
+        assert_eq!(
+            spec.xdr_to_json(&ScVal::U64(12345), &ScType::Val).unwrap(),
+            Value::Number(12345.into())
+        );
+        assert_eq!(
+            spec.xdr_to_json(&ScVal::I64(-12345), &ScType::Val).unwrap(),
+            Value::Number((-12345).into())
+        );
+        assert_eq!(
+            spec.xdr_to_json(&ScVal::Timepoint(TimePoint(500)), &ScType::Val)
+                .unwrap(),
+            Value::Number(500.into())
+        );
+        assert_eq!(
+            spec.xdr_to_json(&ScVal::Duration(Duration(600)), &ScType::Val)
+                .unwrap(),
+            Value::Number(600.into())
+        );
+
+        let sym = ScVal::Symbol(ScSymbol("hello".try_into().unwrap()));
+        assert_eq!(
+            spec.xdr_to_json(&sym, &ScType::Val).unwrap(),
+            Value::String("hello".to_string())
+        );
+
+        let string_val = ScVal::String(ScString("world".as_bytes().to_vec().try_into().unwrap()));
+        assert_eq!(
+            spec.xdr_to_json(&string_val, &ScType::Val).unwrap(),
+            Value::String("world".to_string())
+        );
+    }
+
+    #[test]
+    fn test_from_json_and_from_string_with_val_type() {
+        let spec = Spec(None);
+
+        // Bool
+        assert_eq!(
+            spec.from_json(&Value::Bool(false), &ScType::Val).unwrap(),
+            ScVal::Bool(false)
+        );
+        assert_eq!(
+            spec.from_json(&Value::Bool(true), &ScType::Val).unwrap(),
+            ScVal::Bool(true)
+        );
+        assert_eq!(
+            spec.from_string("false", &ScType::Val).unwrap(),
+            ScVal::Bool(false)
+        );
+        assert_eq!(
+            spec.from_string("true", &ScType::Val).unwrap(),
+            ScVal::Bool(true)
+        );
+
+        // Number
+        assert_eq!(
+            spec.from_json(&Value::Number(42.into()), &ScType::Val)
+                .unwrap(),
+            ScVal::U32(42)
+        );
+        assert_eq!(
+            spec.from_string("42", &ScType::Val).unwrap(),
+            ScVal::U32(42)
+        );
+        assert_eq!(
+            spec.from_string("-10", &ScType::Val).unwrap(),
+            ScVal::I32(-10)
+        );
+
+        // String & Bare String
+        let expected_str =
+            ScVal::String(ScString("foobar".as_bytes().to_vec().try_into().unwrap()));
+        assert_eq!(
+            spec.from_json(&Value::String("foobar".to_string()), &ScType::Val)
+                .unwrap(),
+            expected_str
+        );
+        assert_eq!(
+            spec.from_string(r#""foobar""#, &ScType::Val).unwrap(),
+            expected_str
+        );
+        assert_eq!(
+            spec.from_string("foobar", &ScType::Val).unwrap(),
+            expected_str
+        );
+
+        // Null / Void
+        assert_eq!(
+            spec.from_json(&Value::Null, &ScType::Val).unwrap(),
+            ScVal::Void
+        );
+        assert_eq!(spec.from_string("null", &ScType::Val).unwrap(), ScVal::Void);
+
+        // Array / Vec
+        let arr_val = spec.from_string("[1, 2, 3]", &ScType::Val).unwrap();
+        assert!(matches!(arr_val, ScVal::Vec(Some(_))));
+
+        // Object / Map
+        let obj_val = spec.from_string(r#"{"k": 10}"#, &ScType::Val).unwrap();
+        assert!(matches!(obj_val, ScVal::Map(Some(_))));
+    }
+
+    #[test]
+    fn test_arg_value_name_and_example_for_val_type() {
+        let spec = Spec(None);
+        assert_eq!(
+            spec.arg_value_name(&ScType::Val, 0),
+            Some("val".to_string())
+        );
+        assert_eq!(
+            spec.example(0, &ScType::Val),
+            Some(r#""any_value""#.to_string())
+        );
     }
 }

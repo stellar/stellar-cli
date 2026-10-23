@@ -668,7 +668,8 @@ fn get_available_functions(spec: &Spec) -> String {
 fn is_primitive_type(type_def: &ScSpecTypeDef) -> bool {
     matches!(
         type_def,
-        ScSpecTypeDef::U32
+        ScSpecTypeDef::Val
+            | ScSpecTypeDef::U32
             | ScSpecTypeDef::U64
             | ScSpecTypeDef::U128
             | ScSpecTypeDef::U256
@@ -701,6 +702,9 @@ fn get_context_suggestions(expected_type: &ScSpecTypeDef, received_value: &str) 
             } else {
                 "Ensure the value is a valid integer within the type's range".to_string()
             }
+        }
+        ScSpecTypeDef::Val => {
+            "For generic values, provide a valid JSON primitive, array, object, or string".to_string()
         }
         ScSpecTypeDef::Bool => {
             "For booleans, use 'true' or 'false' (without quotes)".to_string()
@@ -1916,6 +1920,66 @@ mod tests {
         assert!(
             bad_chars.is_empty(),
             "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
+        );
+    }
+
+    #[test]
+    fn test_val_arg_parsing() {
+        let spec = Spec(None);
+        let config = config::Args::default();
+        let print = Print::new(false);
+
+        // Test bool false
+        let parsed = parse_argument_with_validation(
+            "val",
+            "false",
+            &ScSpecTypeDef::Val,
+            &spec,
+            &config,
+            &print,
+        )
+        .unwrap();
+        assert_eq!(parsed, ScVal::Bool(false));
+
+        // Test bool true
+        let parsed = parse_argument_with_validation(
+            "val",
+            "true",
+            &ScSpecTypeDef::Val,
+            &spec,
+            &config,
+            &print,
+        )
+        .unwrap();
+        assert_eq!(parsed, ScVal::Bool(true));
+
+        // Test integer
+        let parsed = parse_argument_with_validation(
+            "val",
+            "123",
+            &ScSpecTypeDef::Val,
+            &spec,
+            &config,
+            &print,
+        )
+        .unwrap();
+        assert_eq!(parsed, ScVal::U32(123));
+
+        // Test string
+        let parsed = parse_argument_with_validation(
+            "val",
+            "hello",
+            &ScSpecTypeDef::Val,
+            &spec,
+            &config,
+            &print,
+        )
+        .unwrap();
+        assert_eq!(
+            parsed,
+            ScVal::String(crate::xdr::ScString(
+                "hello".as_bytes().to_vec().try_into().unwrap()
+            ))
         );
     }
 }
