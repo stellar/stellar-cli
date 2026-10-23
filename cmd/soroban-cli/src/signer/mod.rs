@@ -29,6 +29,11 @@ pub mod secure_store;
 pub enum Error {
     #[error("Contract addresses are not supported to sign auth entries {address}")]
     ContractAddressAreNotSupported { address: String },
+    #[error("Address type {address_type} is not supported as an auth entry credential: {address}")]
+    UnsupportedAuthAddress {
+        address_type: String,
+        address: String,
+    },
     #[error(transparent)]
     Ed25519(#[from] ed25519_dalek::SignatureError),
     #[error("Missing signing key for account {address}")]
@@ -130,9 +135,24 @@ pub async fn sign_soroban_authorizations(
         // See if we have a signer for this authorizationEntry
         // If not, then we Error
         let auth_address_bytes: &[u8; 32] = match address {
-            ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported"),
-            ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
-            ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
+            ScAddress::MuxedAccount(_) => {
+                return Err(Error::UnsupportedAuthAddress {
+                    address_type: "MuxedAccount".to_string(),
+                    address: address.to_string(),
+                });
+            }
+            ScAddress::ClaimableBalance(_) => {
+                return Err(Error::UnsupportedAuthAddress {
+                    address_type: "ClaimableBalance".to_string(),
+                    address: address.to_string(),
+                });
+            }
+            ScAddress::LiquidityPool(_) => {
+                return Err(Error::UnsupportedAuthAddress {
+                    address_type: "LiquidityPool".to_string(),
+                    address: address.to_string(),
+                });
+            }
             ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
             ScAddress::Contract(stellar_xdr::ContractId(Hash(c))) => {
                 // This address is for a contract. This means we're using a custom
@@ -928,5 +948,92 @@ mod tests {
             first_address_creds(&v2_signed).signature,
             "V2 must bind the address, producing a different signature than V1",
         );
+    }
+
+    #[tokio::test]
+    async fn test_unsupported_auth_address_muxed_account() {
+        let signer = local_signer([1u8; 32]);
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+        let muxed = stellar_xdr::MuxedEd25519Account {
+            id: 123,
+            ed25519: Uint256([7u8; 32]),
+        };
+        let entry = address_auth(
+            ScAddress::MuxedAccount(muxed),
+            invocation(contract, "hello"),
+        );
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(Error::UnsupportedAuthAddress { ref address_type, .. }) if address_type == "MuxedAccount"
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_unsupported_auth_address_claimable_balance() {
+        let signer = local_signer([1u8; 32]);
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+        let balance_id = stellar_xdr::ClaimableBalanceId::ClaimableBalanceIdTypeV0(Hash([5u8; 32]));
+        let entry = address_auth(
+            ScAddress::ClaimableBalance(balance_id),
+            invocation(contract, "hello"),
+        );
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(Error::UnsupportedAuthAddress { ref address_type, .. }) if address_type == "ClaimableBalance"
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_unsupported_auth_address_liquidity_pool() {
+        let signer = local_signer([1u8; 32]);
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+        let pool_id = stellar_xdr::PoolId(Hash([6u8; 32]));
+        let entry = address_auth(
+            ScAddress::LiquidityPool(pool_id),
+            invocation(contract, "hello"),
+        );
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(Error::UnsupportedAuthAddress { ref address_type, .. }) if address_type == "LiquidityPool"
+        ));
     }
 }
