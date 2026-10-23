@@ -151,6 +151,24 @@ pub async fn send_transaction_polling_with_events(
     match client.send_transaction_polling(signed_tx).await {
         Ok(res) => Ok(res),
         Err(e) => {
+            let err_str = e.to_string();
+            if err_str.contains("TxInsufficientBalance")
+                || err_str.contains("tx_insufficient_balance")
+                || err_str.contains("txINSUFFICIENT_BALANCE")
+                || err_str.contains("TxInsufficientFee")
+                || err_str.contains("tx_insufficient_fee")
+            {
+                if let Some((source_account, fee)) = extract_envelope_source_and_fee(signed_tx) {
+                    check_and_print_insufficient_balance_for_account(
+                        client,
+                        &source_account,
+                        fee,
+                        print,
+                    )
+                    .await;
+                }
+            }
+
             // Best-effort: recover the diagnostic events the submission error dropped.
             //
             // Since protocol 23 a failed transaction's diagnostic events are
@@ -167,5 +185,141 @@ pub async fn send_transaction_polling_with_events(
             }
             Err(e)
         }
+    }
+}
+
+pub fn extract_envelope_source_and_fee(
+    tx_env: &TransactionEnvelope,
+) -> Option<(xdr::MuxedAccount, i64)> {
+    match tx_env {
+        TransactionEnvelope::Tx(v1) => Some((v1.tx.source_account.clone(), v1.tx.fee as i64)),
+        TransactionEnvelope::TxFeeBump(fb) => Some((fb.tx.fee_source.clone(), fb.tx.fee)),
+        _ => None,
+    }
+}
+
+pub fn format_muxed_account_address(source: &xdr::MuxedAccount) -> String {
+    let bytes = match source {
+        xdr::MuxedAccount::Ed25519(xdr::Uint256(b)) => *b,
+        xdr::MuxedAccount::MuxedEd25519(m) => m.ed25519.0,
+    };
+    stellar_strkey::ed25519::PublicKey(bytes)
+        .to_string()
+        .as_str()
+        .to_string()
+}
+
+pub fn calculate_insufficient_balance_info(
+    current_balance: i64,
+    fee_needed: i64,
+    num_sub_entries: u32,
+) -> (i64, i64, Option<i64>) {
+    let base_reserve: i64 = 5_000_000;
+    let min_reserve = (2 + num_sub_entries as i64) * base_reserve;
+    let total_required = fee_needed + min_reserve;
+    let shortfall = if current_balance < total_required {
+        Some(total_required - current_balance)
+    } else {
+        None
+    };
+    (min_reserve, total_required, shortfall)
+}
+
+pub async fn check_and_print_insufficient_balance_for_account(
+    client: &soroban_rpc::Client,
+    source_account: &xdr::MuxedAccount,
+    fee_needed: i64,
+    print: &print::Print,
+) {
+    let address = format_muxed_account_address(source_account);
+    if let Ok(account) = client.get_account(&address).await {
+        let (min_reserve, _, shortfall) = calculate_insufficient_balance_info(
+            account.balance,
+            fee_needed,
+            account.num_sub_entries,
+        );
+
+        print.infoln(format!("Fee source account: {address}"));
+        print.infoln(format!(
+            "Current balance: {} XLM",
+            print::format_number(account.balance, 7)
+        ));
+        print.infoln(format!(
+            "Transaction fee required: {} XLM",
+            print::format_number(fee_needed, 7)
+        ));
+        print.infoln(format!(
+            "Minimum reserve required: {} XLM (sub-entries: {})",
+            print::format_number(min_reserve, 7),
+            account.num_sub_entries
+        ));
+
+        if let Some(shortfall_amount) = shortfall {
+            print.errorln(format!(
+                "Insufficient balance: need at least {} more XLM to pay fee and maintain reserve",
+                print::format_number(shortfall_amount, 7)
+            ));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::xdr::{
+        Memo, MuxedAccount, Preconditions, SequenceNumber, Transaction, TransactionEnvelope,
+        TransactionV1Envelope, Uint256, VecM,
+    };
+
+    #[test]
+    fn test_calculate_insufficient_balance_info() {
+        // Balance 10 XLM (100_000_000 stroops), Fee 2 XLM (20_000_000 stroops), 0 sub-entries (reserve 1 XLM = 10_000_000)
+        let (min_reserve, total, shortfall) =
+            calculate_insufficient_balance_info(100_000_000, 20_000_000, 0);
+        assert_eq!(min_reserve, 10_000_000);
+        assert_eq!(total, 30_000_000);
+        assert_eq!(shortfall, None);
+
+        // Balance 0.5 XLM (5_000_000 stroops), Fee 5 XLM (50_000_000 stroops), 0 sub-entries (reserve 1 XLM = 10_000_000)
+        // total required = 60_000_000, shortfall = 55_000_000 (5.5 XLM)
+        let (min_reserve, total, shortfall) =
+            calculate_insufficient_balance_info(5_000_000, 50_000_000, 0);
+        assert_eq!(min_reserve, 10_000_000);
+        assert_eq!(total, 60_000_000);
+        assert_eq!(shortfall, Some(55_000_000));
+
+        // Balance 2 XLM (20_000_000 stroops), Fee 1.5 XLM (15_000_000 stroops), 1 sub-entry (reserve = (2+1)*0.5 = 1.5 XLM = 15_000_000)
+        // total required = 30_000_000, shortfall = 10_000_000 (1 XLM)
+        let (min_reserve, total, shortfall) =
+            calculate_insufficient_balance_info(20_000_000, 15_000_000, 1);
+        assert_eq!(min_reserve, 15_000_000);
+        assert_eq!(total, 30_000_000);
+        assert_eq!(shortfall, Some(10_000_000));
+    }
+
+    #[test]
+    fn test_extract_envelope_source_and_fee() {
+        let pk = Uint256([5; 32]);
+        let source = MuxedAccount::Ed25519(pk);
+        let tx = Transaction {
+            source_account: source.clone(),
+            fee: 12345,
+            seq_num: SequenceNumber(1),
+            cond: Preconditions::None,
+            memo: Memo::None,
+            operations: VecM::default(),
+            ext: xdr::TransactionExt::V0,
+        };
+        let env = TransactionEnvelope::Tx(TransactionV1Envelope {
+            tx,
+            signatures: VecM::default(),
+        });
+
+        let (extracted_source, extracted_fee) = extract_envelope_source_and_fee(&env).unwrap();
+        assert_eq!(extracted_source, source);
+        assert_eq!(extracted_fee, 12345);
+
+        let address = format_muxed_account_address(&extracted_source);
+        assert!(address.starts_with("G"));
     }
 }
