@@ -72,6 +72,15 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+
+    /// Simulate the transaction only without signing or submitting to the network
+    #[arg(
+        long,
+        visible_alias = "is-view",
+        visible_alias = "sim-only",
+        help_heading = HEADING_TRANSACTION
+    )]
+    pub simulate_only: bool,
     /// If provided, will be passed to the contract's `__constructor` function with provided arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
@@ -262,23 +271,25 @@ impl Cmd {
             TxnEnvelopeResult::Res(contract) => {
                 let network = cmd.config.get_network()?;
 
-                if let Some(alias) = cmd.alias.clone() {
-                    if let Some(existing_contract) = cmd
-                        .config
-                        .locator
-                        .get_contract_id(&alias, &network.network_passphrase)?
-                    {
-                        let print = Print::new(global_args.quiet);
-                        print.warnln(format!(
+                if !cmd.simulate_only {
+                    if let Some(alias) = cmd.alias.clone() {
+                        if let Some(existing_contract) = cmd
+                            .config
+                            .locator
+                            .get_contract_id(&alias, &network.network_passphrase)?
+                        {
+                            let print = Print::new(global_args.quiet);
+                            print.warnln(format!(
                             "Overwriting existing alias '{alias}' that currently links to contract ID: {existing_contract}"
                         ));
-                    }
+                        }
 
-                    cmd.config.locator.save_contract_id(
-                        &network.network_passphrase,
-                        &contract,
-                        &alias,
-                    )?;
+                        cmd.config.locator.save_contract_id(
+                            &network.network_passphrase,
+                            &contract,
+                            &alias,
+                        )?;
+                    }
                 }
 
                 println!("{contract}");
@@ -346,6 +357,7 @@ impl Cmd {
                     auth_mode: self.auth_mode.clone(),
                     ignore_checks: self.ignore_checks,
                     build_only: is_build,
+                    simulate_only: self.simulate_only,
                     package: None,
                     build_args: build::BuildArgs::default(),
                 }
@@ -443,6 +455,26 @@ impl Cmd {
         if self.build_only {
             print.checkln("Transaction built!");
             return Ok(TxnResult::Txn(txn));
+        }
+
+        if self.simulate_only {
+            print.infoln("Simulating transaction…");
+            let assembled = crate::assembled::simulate_and_assemble_transaction(
+                &client,
+                &txn,
+                self.resources.resource_config(),
+                self.resources.resource_fee,
+                self.auth_mode.to_rpc(),
+            )
+            .await?;
+            if let Ok(events) = assembled.sim_res.events() {
+                crate::log::event::all(&events);
+            }
+            let fee = assembled.transaction().fee;
+            print.checkln(format!(
+                "Simulation successful! Estimated fee: {fee} stroops"
+            ));
+            return Ok(TxnResult::Res(contract_id));
         }
 
         sim_sign_and_send_tx::<Error>(
@@ -596,5 +628,20 @@ mod tests {
         let contracts = [built(crate::config::alias::NATIVE)];
 
         assert_eq!(reserved_package_alias(Some(&alias), &contracts), None);
+    }
+
+    #[test]
+    fn parse_simulate_only_and_aliases() {
+        let cmd =
+            Cmd::try_parse_from(["deploy", "--source-account", "alice", "--wasm", "test.wasm", "--simulate-only"]).unwrap();
+        assert!(cmd.simulate_only);
+
+        let cmd_is_view =
+            Cmd::try_parse_from(["deploy", "--source-account", "alice", "--wasm", "test.wasm", "--is-view"]).unwrap();
+        assert!(cmd_is_view.simulate_only);
+
+        let cmd_sim_only =
+            Cmd::try_parse_from(["deploy", "--source-account", "alice", "--wasm", "test.wasm", "--sim-only"]).unwrap();
+        assert!(cmd_sim_only.simulate_only);
     }
 }

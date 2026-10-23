@@ -94,6 +94,15 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+
+    /// Simulate the transaction only without signing or submitting to the network
+    #[arg(
+        long,
+        visible_alias = "is-view",
+        visible_alias = "sim-only",
+        help_heading = HEADING_TRANSACTION
+    )]
+    pub simulate_only: bool,
 }
 
 impl Cmd {
@@ -115,23 +124,25 @@ impl Cmd {
             TxnEnvelopeResult::Res(contract) => {
                 let network = self.config.get_network()?;
 
-                if let Some(alias) = self.alias.clone() {
-                    if let Some(existing_contract) = self
-                        .config
-                        .locator
-                        .get_contract_id(&alias, &network.network_passphrase)?
-                    {
-                        let print = Print::new(global_args.quiet);
-                        print.warnln(format!(
-                            "Overwriting existing contract id: {existing_contract}"
-                        ));
-                    }
+                if !self.simulate_only {
+                    if let Some(alias) = self.alias.clone() {
+                        if let Some(existing_contract) = self
+                            .config
+                            .locator
+                            .get_contract_id(&alias, &network.network_passphrase)?
+                        {
+                            let print = Print::new(global_args.quiet);
+                            print.warnln(format!(
+                                "Overwriting existing contract id: {existing_contract}"
+                            ));
+                        }
 
-                    self.config.locator.save_contract_id(
-                        &network.network_passphrase,
-                        &contract,
-                        &alias,
-                    )?;
+                        self.config.locator.save_contract_id(
+                            &network.network_passphrase,
+                            &contract,
+                            &alias,
+                        )?;
+                    }
                 }
 
                 println!("{contract}");
@@ -184,6 +195,26 @@ impl Cmd {
 
         if self.build_only {
             return Ok(TxnResult::Txn(Box::new(tx)));
+        }
+
+        if self.simulate_only {
+            print.infoln("Simulating transaction…");
+            let assembled = crate::assembled::simulate_and_assemble_transaction(
+                &client,
+                &tx,
+                self.resources.resource_config(),
+                self.resources.resource_fee,
+                None,
+            )
+            .await?;
+            if let Ok(events) = assembled.sim_res.events() {
+                crate::log::event::all(&events);
+            }
+            let fee = assembled.transaction().fee;
+            print.checkln(format!(
+                "Simulation successful! Estimated fee: {fee} stroops"
+            ));
+            return Ok(TxnResult::Res(stellar_strkey::Contract(contract_id.0)));
         }
 
         sim_sign_and_send_tx::<Error>(
