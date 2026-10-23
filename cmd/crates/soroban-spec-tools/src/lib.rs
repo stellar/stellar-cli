@@ -299,7 +299,7 @@ impl Spec {
                     ScType::Bytes | ScType::BytesN(_) if matches!(val, Value::Number(_)) => {
                         Ok(Value::String(s.to_owned()))
                     }
-                    ScType::String if !matches!(val, Value::String(_)) => {
+                    ScType::String | ScType::Symbol if !matches!(val, Value::String(_)) => {
                         Ok(Value::String(s.to_owned()))
                     }
                     ScType::Timepoint | ScType::Duration => {
@@ -945,6 +945,18 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
                 .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         )),
+        (ScType::Symbol, Value::Number(n)) => ScVal::Symbol(ScSymbol(
+            n.to_string()
+                .as_bytes()
+                .try_into()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
+        )),
+        (ScType::Symbol, Value::Bool(b)) => ScVal::Symbol(ScSymbol(
+            b.to_string()
+                .as_bytes()
+                .try_into()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
+        )),
 
         (ScType::Address | ScType::MuxedAddress, Value::String(s)) => sc_address_from_json(s)?,
 
@@ -989,6 +1001,18 @@ pub fn from_json_primitives(v: &Value, t: &ScType) -> Result<ScVal, Error> {
 
         (ScType::String, Value::String(s)) => ScVal::String(ScString(
             s.try_into()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
+        )),
+        (ScType::String, Value::Number(n)) => ScVal::String(ScString(
+            n.to_string()
+                .as_bytes()
+                .try_into()
+                .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
+        )),
+        (ScType::String, Value::Bool(b)) => ScVal::String(ScString(
+            b.to_string()
+                .as_bytes()
+                .try_into()
                 .map_err(|_| Error::InvalidValue(Some(t.clone())))?,
         )),
         // Todo make proper error Which shouldn't exist
@@ -1940,6 +1964,73 @@ mod tests {
         let expected = ScVal::Symbol("hello".try_into().unwrap());
         assert_eq!(parsed, expected);
         assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_symbol_conversion_numeric() {
+        let as_str = "123";
+        let parsed = from_string_primitive(as_str, &ScType::Symbol).unwrap();
+        let expected = ScVal::Symbol("123".try_into().unwrap());
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+
+        let as_str = "465454";
+        let parsed = from_string_primitive(as_str, &ScType::Symbol).unwrap();
+        let expected = ScVal::Symbol("465454".try_into().unwrap());
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), as_str);
+    }
+
+    #[test]
+    fn test_symbol_conversion_numeric_json_quoted() {
+        let parsed = from_string_primitive(r#""123""#, &ScType::Symbol).unwrap();
+        let expected = ScVal::Symbol("123".try_into().unwrap());
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), "123");
+    }
+
+    #[test]
+    fn test_symbol_conversion_boolean() {
+        let parsed = from_string_primitive("true", &ScType::Symbol).unwrap();
+        let expected = ScVal::Symbol("true".try_into().unwrap());
+        assert_eq!(parsed, expected);
+        assert_eq!(to_string(&parsed).unwrap(), "true");
+    }
+
+    #[test]
+    fn test_symbol_vec_with_numeric_elements() {
+        let spec = Spec::default();
+        let type_ = ScType::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(ScType::Symbol),
+        }));
+        let parsed = spec.from_string("[123, 456]", &type_).unwrap();
+        let expected = ScVal::Vec(Some(
+            vec![
+                ScVal::Symbol("123".try_into().unwrap()),
+                ScVal::Symbol("456".try_into().unwrap()),
+            ]
+            .try_into()
+            .unwrap(),
+        ));
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_string_vec_with_numeric_elements() {
+        let spec = Spec::default();
+        let type_ = ScType::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(ScType::String),
+        }));
+        let parsed = spec.from_string("[123, 456]", &type_).unwrap();
+        let expected = ScVal::Vec(Some(
+            vec![
+                ScVal::String(ScString("123".try_into().unwrap())),
+                ScVal::String(ScString("456".try_into().unwrap())),
+            ]
+            .try_into()
+            .unwrap(),
+        ));
+        assert_eq!(parsed, expected);
     }
 
     #[test]
