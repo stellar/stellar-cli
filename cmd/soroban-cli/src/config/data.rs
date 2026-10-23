@@ -174,6 +174,24 @@ impl Action {
         }
         .to_string()
     }
+
+    pub fn new_failed_send(envelope_xdr: String, tx_hash: Option<String>) -> Self {
+        Self::Send {
+            response: GetTransactionResponseRaw {
+                created_at: None,
+                fee_bump: None,
+                tx_hash,
+                application_order: None,
+                status: "FAILED".to_string(),
+                ledger: None,
+                envelope_xdr: Some(envelope_xdr),
+                result_xdr: None,
+                result_meta_xdr: None,
+                events: None,
+                diagnostic_events_xdr: None,
+            },
+        }
+    }
 }
 
 impl From<SimulateTransactionResponse> for Action {
@@ -294,6 +312,43 @@ mod test {
                 rendered.contains("alice:redacted"),
                 "expected `alice:redacted` in ls -l render: {rendered}"
             );
+        });
+    }
+
+    #[test]
+    #[serial]
+    fn actionlog_records_failed_send() {
+        let t = assert_fs::TempDir::new().unwrap();
+        with_env_set("STELLAR_DATA_HOME", t.path(), || {
+            let rpc_uri = Url::from_str("https://rpc.example.com/soroban/rpc").unwrap();
+            let action = Action::new_failed_send(
+                "AAAA_fake_signed_envelope".to_string(),
+                Some("abcd1234hash".to_string()),
+            );
+
+            let id = write(action, &rpc_uri).unwrap();
+            let (read_action, read_uri) = read(&id).unwrap();
+            assert_eq!(rpc_uri, read_uri);
+            match read_action {
+                Action::Send { response } => {
+                    assert_eq!(response.status, "FAILED");
+                    assert_eq!(
+                        response.envelope_xdr,
+                        Some("AAAA_fake_signed_envelope".to_string())
+                    );
+                    assert_eq!(response.tx_hash, Some("abcd1234hash".to_string()));
+                }
+                _ => panic!("Expected Action::Send"),
+            }
+
+            let rendered = list_actions()
+                .unwrap()
+                .into_iter()
+                .map(|entry| entry.to_string())
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(rendered.contains("Send"));
+            assert!(rendered.contains("FAILED"));
         });
     }
 }
