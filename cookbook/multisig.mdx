@@ -1,0 +1,230 @@
+---
+title: Multisig Accounts and Transactions
+hide_table_of_contents: true
+description: Create multisig accounts, configure signers and operation thresholds, and sign multi-signature transactions using the Stellar CLI
+custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/multisig.mdx
+---
+
+Stellar natively supports multi-signature (multisig) accounts directly at the protocol level. An account can designate multiple signers with individual weights and establish specific thresholds for low, medium, and high-security operations.
+
+This cookbook covers:
+1. Understanding Stellar signer weights and operation thresholds.
+2. Configuring a 2-of-2 and 2-of-3 multisig account using `stellar tx new set-options`.
+3. Creating, multi-signing, and submitting transactions using `stellar tx sign` and `stellar tx send`.
+4. Using multisig with Soroban smart contract invocations.
+5. Updating or removing signers and disabling the master key safely.
+
+---
+
+## Key Multisig Concepts
+
+Each Stellar account has:
+- **Master Key Weight:** The weight of the account's primary secret key (defaults to `1`).
+- **Additional Signers:** Other public keys (Ed25519 addresses) added with an assigned weight (from `1` to `255`).
+- **Thresholds:**
+  - **Low Threshold (`--low-threshold`):** Required for low-security operations (e.g. `allow_trust`, `bump_sequence`).
+  - **Medium Threshold (`--med-threshold`):** Required for most financial operations (e.g. `payment`, `create_account`, `change_trust`, `manage_data`, and smart contract calls).
+  - **High Threshold (`--high-threshold`):** Required for sensitive account management operations (e.g. `set_options` to alter signers/thresholds, and `account_merge`).
+
+A transaction will only succeed if the sum of weights of the keys that signed it is greater than or equal to the operation's required threshold.
+
+---
+
+## 1. Setup Identities
+
+Create test identities for demonstration:
+
+```bash cookbooktest.ignore
+# Generate three distinct keypairs
+stellar keys generate alice
+stellar keys generate bob
+stellar keys generate charlie
+
+# Fund Alice's account on testnet to act as the primary account
+stellar keys fund alice --network testnet
+```
+
+---
+
+## 2. Converting an Account to a 2-of-2 Multisig Account
+
+To require both Alice and Bob to approve any transaction from Alice's account:
+- Keep Alice's master key weight at `1`.
+- Add Bob as a signer with weight `1`.
+- Set the medium threshold to `2` (requires both Alice + Bob for payments and smart contracts).
+- Set the high threshold to `2` (requires both Alice + Bob to change signers or thresholds).
+- Set the low threshold to `1` (allows single-signature fee bumps or sequence updates).
+
+Use the `set-options` transaction subcommand:
+
+```bash cookbooktest.ignore
+stellar tx new set-options \
+    --source alice \
+    --network testnet \
+    --signer bob \
+    --signer-weight 1 \
+    --master-weight 1 \
+    --low-threshold 1 \
+    --med-threshold 2 \
+    --high-threshold 2
+```
+
+:::warning Threshold Safety Rule
+Never set any threshold higher than the sum of all available signer weights. For example, if Alice has weight 1 and Bob has weight 1 (total weight = 2), setting a threshold to 3 will permanently lock the account!
+:::
+
+---
+
+## 3. Configuring a 2-of-3 Multisig Scheme
+
+A 2-of-3 scheme allows any two of three signers (Alice, Bob, or Charlie) to authorize transactions, providing redundancy in case one signer loses access.
+
+Because the account currently requires a threshold of `2` for high-security operations (`set-options`), adding Charlie requires two signatures:
+
+```bash cookbooktest.ignore
+stellar tx new set-options \
+    --source alice \
+    --network testnet \
+    --signer charlie \
+    --signer-weight 1 \
+    --build-only \
+  | stellar tx sign --sign-with-key alice --network testnet \
+  | stellar tx sign --sign-with-key bob --network testnet \
+  | stellar tx send --network testnet
+```
+
+Now the total available weight is `3` (Alice: 1, Bob: 1, Charlie: 1), and any two signatures meet the medium and high thresholds of `2`.
+
+---
+
+## 4. Signing and Submitting Transactions with Multisig
+
+When an account requires multiple signatures, you build the transaction first, collect signatures from each party, and then broadcast the fully signed envelope.
+
+### Step 4.1: Build the Unsigned Transaction
+
+Alice builds a payment transaction without signing or submitting it using `--build-only`:
+
+```bash cookbooktest.ignore
+stellar tx new payment \
+    --source alice \
+    --destination charlie \
+    --amount 100 \
+    --asset native \
+    --network testnet \
+    --build-only > payment.xdr
+```
+
+### Step 4.2: First Signer Adds Signature
+
+Alice signs the transaction envelope using `stellar tx sign`:
+
+```bash cookbooktest.ignore
+stellar tx sign \
+    --sign-with-key alice \
+    --network testnet \
+    payment.xdr > payment_signed_alice.xdr
+```
+
+### Step 4.3: Second Signer Adds Signature
+
+Bob signs the partially signed envelope:
+
+```bash cookbooktest.ignore
+stellar tx sign \
+    --sign-with-key bob \
+    --network testnet \
+    payment_signed_alice.xdr > payment_fully_signed.xdr
+```
+
+### Step 4.4: Broadcast the Transaction
+
+Once the collected signatures satisfy the threshold, submit the transaction to the network using `stellar tx send`:
+
+```bash cookbooktest.ignore
+stellar tx send \
+    --network testnet \
+    payment_fully_signed.xdr
+```
+
+### Piping in Scripts or CI/CD
+
+If all signing keys are available in the local execution environment, you can chain the commands directly using shell pipes:
+
+```bash cookbooktest.ignore
+stellar tx new payment \
+    --source alice \
+    --destination charlie \
+    --amount 100 \
+    --asset native \
+    --network testnet \
+    --build-only \
+  | stellar tx sign --sign-with-key alice --network testnet \
+  | stellar tx sign --sign-with-key bob --network testnet \
+  | stellar tx send --network testnet
+```
+
+---
+
+## 5. Multisig with Soroban Smart Contract Invocations
+
+When invoking a smart contract where the source account or an authorized address is a multisig account, use `--build-only` on `stellar contract invoke`:
+
+```bash cookbooktest.ignore
+stellar contract invoke \
+    --id <CONTRACT_ID> \
+    --source alice \
+    --network testnet \
+    --build-only \
+    -- my_contract_function --arg 42 \
+  | stellar tx sign --sign-with-key alice --network testnet \
+  | stellar tx sign --sign-with-key bob --network testnet \
+  | stellar tx send --network testnet
+```
+
+---
+
+## 6. Removing a Signer
+
+To remove a signer from an account, set that signer's weight to `0`:
+
+```bash cookbooktest.ignore
+stellar tx new set-options \
+    --source alice \
+    --network testnet \
+    --signer charlie \
+    --signer-weight 0 \
+    --build-only \
+  | stellar tx sign --sign-with-key alice --network testnet \
+  | stellar tx sign --sign-with-key bob --network testnet \
+  | stellar tx send --network testnet
+```
+
+---
+
+## 7. Disabling the Master Key (Pure Cooperative Multisig)
+
+For corporate treasuries, DAOs, or escrow setups, you may want to ensure that no single founder or administrator retains special unilateral authority.
+
+To disable the original master key entirely, set `--master-weight 0`:
+
+```bash cookbooktest.ignore
+stellar tx new set-options \
+    --source alice \
+    --network testnet \
+    --master-weight 0 \
+    --build-only \
+  | stellar tx sign --sign-with-key alice --network testnet \
+  | stellar tx sign --sign-with-key bob --network testnet \
+  | stellar tx send --network testnet
+```
+
+After this transaction executes, Alice's initial secret key has a weight of 0 and cannot sign any transactions. Only the remaining authorized signers (e.g. Bob and Charlie) can authorize future actions.
+
+---
+
+## Best Practices
+
+1. **Always plan thresholds before disabling keys:** Ensure the remaining active signers can achieve the `high_threshold` to prevent permanent loss of account administration.
+2. **Keep the low threshold at 1 when feasible:** Allowing single signers to bump sequence numbers or adjust transaction inclusion fees prevents transaction submission stalls.
+3. **Audit transaction envelopes before signing:** Inspect the decoded transaction details (operations, amounts, destination) using `stellar tx new ... --build-only` or the Stellar Laboratory before providing your signature.
