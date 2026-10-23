@@ -422,6 +422,11 @@ impl Cmd {
             // fall back to raw format since we only have the spec for the invoked contract.
             crate::log::event::contract_with_spec(&events, &print, Some(&spec));
 
+            if let Some(state_changes) = &sim_res.state_changes {
+                crate::log::state_changes::all(state_changes);
+                crate::log::state_changes::state_changes(state_changes, &print);
+            }
+
             let output = output_to_string(&spec, &return_value[0].xdr, &function)?
                 .into_result()
                 .expect("output_to_string always returns a result");

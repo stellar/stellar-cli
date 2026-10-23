@@ -4,10 +4,12 @@ pub mod auth;
 pub mod cost;
 pub mod event;
 pub mod footprint;
+pub mod state_changes;
 
 pub use auth::*;
 pub use cost::*;
 pub use footprint::*;
+pub use state_changes::*;
 
 pub fn extract_events(tx_meta: &xdr::TransactionMeta) -> Vec<xdr::DiagnosticEvent> {
     match tx_meta {
