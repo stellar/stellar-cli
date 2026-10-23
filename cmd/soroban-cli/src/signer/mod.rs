@@ -115,7 +115,10 @@ pub async fn sign_soroban_authorizations(
 
         // Before we attempt to sign, validate the auth entry is strict
         match validation::classify_auth_invocation(&body.host_function, &raw_auth.root_invocation) {
-            validation::AuthStyle::Strict => {}
+            validation::AuthStyle::Strict => {
+                print.infoln("Signing authorization entry:");
+                print.println(format_auth_entry(raw_auth));
+            }
             validation::AuthStyle::NonStrict => {
                 handle_non_strict_authorization(raw_auth, skip_approval, print)?;
             }
@@ -928,5 +931,48 @@ mod tests {
             first_address_creds(&v2_signed).signature,
             "V2 must bind the address, producing a different signature than V1",
         );
+    }
+
+    #[tokio::test]
+    async fn test_signs_strict_auth_entry_with_sub_invocations_and_non_quiet_print() {
+        let signer = local_signer([1u8; 32]);
+        let signer_pk = signer_pubkey(&signer);
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+        let sub_contract = [43u8; 32];
+
+        let sub_inv = SorobanAuthorizedInvocation {
+            function: SorobanAuthorizedFunction::ContractFn(invoke_args(sub_contract, "sub_call")),
+            sub_invocations: VecM::default(),
+        };
+
+        let mut root_inv = invocation(contract, "hello");
+        root_inv.sub_invocations = vec![sub_inv].try_into().unwrap();
+
+        let entry = address_auth(ed25519_address(signer_pk), root_inv);
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        // Signing with non-quiet print should output the full tree and succeed without error
+        let signed_auth_tx = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(false),
+        )
+        .await
+        .unwrap()
+        .expect("signing modifies the transaction");
+
+        let OperationBody::InvokeHostFunction(body) = &signed_auth_tx.operations[0].body else {
+            panic!("expected InvokeHostFunction");
+        };
+        let SorobanCredentials::Address(creds) = &body.auth[0].credentials else {
+            panic!("expected Address credentials");
+        };
+        assert!(!matches!(creds.signature, ScVal::Void));
+        assert_eq!(creds.signature_expiration_ledger, EXPIRATION_LEDGER);
     }
 }
