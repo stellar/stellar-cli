@@ -6170,6 +6170,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_error_caller"
+version = "28.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "test_hello_world"
 version = "30.0.0"
 dependencies = [
