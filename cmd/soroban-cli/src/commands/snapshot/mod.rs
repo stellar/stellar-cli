@@ -3,7 +3,10 @@ use clap::Parser;
 use super::global;
 
 pub mod create;
+pub mod inspect;
 pub mod merge;
+
+pub use inspect::*;
 
 /// Create and operate on ledger snapshots.
 #[derive(Debug, Parser)]
