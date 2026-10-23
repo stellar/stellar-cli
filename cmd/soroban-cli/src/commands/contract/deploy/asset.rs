@@ -15,11 +15,13 @@ use std::{array::TryFromSliceError, fmt::Debug, num::ParseIntError};
 use crate::commands::tx::fetch;
 use crate::{
     commands::{
+        contract::{self, extend},
         global,
         txn_result::{TxnEnvelopeResult, TxnResult},
         HEADING_TRANSACTION,
     },
-    config::{self, data, network, token::UnresolvedToken},
+    config::{self, alias, data, network, token::UnresolvedToken},
+    key,
     rpc::Error as SorobanRpcError,
     tx::builder,
 };
@@ -64,6 +66,9 @@ pub enum Error {
 
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
+
+    #[error(transparent)]
+    Extend(#[from] extend::Error),
 }
 
 impl From<Infallible> for Error {
@@ -94,6 +99,10 @@ pub struct Cmd {
     /// Build the transaction and only write the base64 xdr to stdout
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
+
+    /// Number of ledgers to extend the contract instance TTL after deploying
+    #[arg(long, visible_alias = "ledgers-to-expire")]
+    pub ledgers_to_extend: Option<u32>,
 }
 
 impl Cmd {
@@ -198,6 +207,26 @@ impl Cmd {
             no_cache,
         )
         .await?;
+
+        if let Some(ledgers_to_extend) = self.ledgers_to_extend {
+            extend::Cmd {
+                ledgers_to_extend,
+                ttl_ledger_only: false,
+                key: key::Args {
+                    contract_id: Some(alias::UnresolvedContract::Resolved(contract_id)),
+                    key: None,
+                    key_xdr: None,
+                    wasm: None,
+                    wasm_hash: None,
+                    durability: contract::Durability::Persistent,
+                },
+                config: config.clone(),
+                resources: self.resources.clone(),
+                build_only: self.build_only,
+            }
+            .execute(config, quiet, no_cache)
+            .await?;
+        }
 
         if let Some(url) = utils::lab_url_for_contract(&network, &contract_id) {
             print.linkln(url);

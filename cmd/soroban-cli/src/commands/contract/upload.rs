@@ -10,7 +10,7 @@ use crate::xdr::{
 };
 use clap::Parser;
 
-use super::{build, restore};
+use super::{build, extend, restore};
 use crate::commands::tx::fetch;
 use crate::{
     commands::{
@@ -58,6 +58,10 @@ pub struct Cmd {
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 
+    /// Number of ledgers to extend the contract code TTL after uploading
+    #[arg(long, visible_alias = "ledgers-to-expire")]
+    pub ledgers_to_extend: Option<u32>,
+
     /// Package to build when --wasm is not provided
     #[arg(long, help_heading = "Build Options", conflicts_with = "wasm")]
     pub package: Option<String>,
@@ -90,6 +94,9 @@ pub enum Error {
 
     #[error(transparent)]
     Restore(#[from] restore::Error),
+
+    #[error(transparent)]
+    Extend(#[from] extend::Error),
 
     #[error("cannot parse WASM file {wasm}: {error}")]
     CannotParseWasm {
@@ -291,6 +298,25 @@ impl Cmd {
                             // exists.
                             if code.ext.ne(&ContractCodeEntryExt::V0) {
                                 print.infoln("Skipping install because wasm already installed");
+                                if let Some(ledgers_to_extend) = self.ledgers_to_extend {
+                                    extend::Cmd {
+                                        ledgers_to_extend,
+                                        ttl_ledger_only: false,
+                                        key: key::Args {
+                                            contract_id: None,
+                                            key: None,
+                                            key_xdr: None,
+                                            wasm: Some(wasm_path.clone()),
+                                            wasm_hash: None,
+                                            durability: super::Durability::Persistent,
+                                        },
+                                        config: config.clone(),
+                                        resources: self.resources.clone(),
+                                        build_only: self.build_only,
+                                    }
+                                    .execute(config, quiet, no_cache)
+                                    .await?;
+                                }
                                 return Ok(TxnResult::Res(hash));
                             }
                         }
@@ -342,6 +368,26 @@ impl Cmd {
 
         if !no_cache {
             data::write_spec(&hash.to_string(), &wasm_spec.spec)?;
+        }
+
+        if let Some(ledgers_to_extend) = self.ledgers_to_extend {
+            extend::Cmd {
+                ledgers_to_extend,
+                ttl_ledger_only: false,
+                key: key::Args {
+                    contract_id: None,
+                    key: None,
+                    key_xdr: None,
+                    wasm: Some(wasm_path.clone()),
+                    wasm_hash: None,
+                    durability: super::Durability::Persistent,
+                },
+                config: config.clone(),
+                resources: self.resources.clone(),
+                build_only: self.build_only,
+            }
+            .execute(config, quiet, no_cache)
+            .await?;
         }
 
         Ok(TxnResult::Res(hash))
@@ -440,5 +486,28 @@ mod tests {
         soroban_spec_tools::test_utils::assert_no_control_chars(&version);
         // "rc" detection (used to gate the release-candidate check) still works.
         assert!(version.contains("rc"));
+    }
+
+    #[test]
+    fn parse_ledgers_to_extend_and_expire_alias() {
+        let cmd = Cmd::try_parse_from([
+            "upload",
+            "--wasm",
+            "test.wasm",
+            "--ledgers-to-extend",
+            "1000",
+        ])
+        .unwrap();
+        assert_eq!(cmd.ledgers_to_extend, Some(1000));
+
+        let cmd_alias = Cmd::try_parse_from([
+            "upload",
+            "--wasm",
+            "test.wasm",
+            "--ledgers-to-expire",
+            "2000",
+        ])
+        .unwrap();
+        assert_eq!(cmd_alias.ledgers_to_extend, Some(2000));
     }
 }

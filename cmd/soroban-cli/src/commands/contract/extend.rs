@@ -32,7 +32,7 @@ use crate::{
 #[group(skip)]
 pub struct Cmd {
     /// Number of ledgers to extend the entries
-    #[arg(long, required = true)]
+    #[arg(long, visible_alias = "ledgers-to-expire", required = true)]
     pub ledgers_to_extend: u32,
 
     /// Only print the new Time To Live ledger

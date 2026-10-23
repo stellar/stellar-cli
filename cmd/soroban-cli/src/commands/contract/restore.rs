@@ -34,7 +34,7 @@ pub struct Cmd {
     pub key: key::Args,
 
     /// Number of ledgers to extend the entry
-    #[arg(long)]
+    #[arg(long, visible_alias = "ledgers-to-expire")]
     pub ledgers_to_extend: Option<u32>,
 
     /// Only print the new Time To Live ledger
@@ -546,5 +546,18 @@ mod tests {
 
         let result = parse_changes(&changes);
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_ledgers_to_expire_alias() {
+        let cmd = Cmd::try_parse_from([
+            "restore",
+            "--id",
+            "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            "--ledgers-to-expire",
+            "4000",
+        ])
+        .unwrap();
+        assert_eq!(cmd.ledgers_to_extend, Some(4000));
     }
 }
