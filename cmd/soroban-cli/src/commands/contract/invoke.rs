@@ -64,6 +64,10 @@ pub struct Cmd {
     #[arg(long, env = "STELLAR_INVOKE_VIEW")]
     pub is_view: bool,
 
+    /// Pass contract invocation arguments as a JSON object (e.g. `{"method": "fn_name", "args": {"arg1": 1}}` or `{"arg1": 1}` when the function name is passed after `--`, or `-` to read JSON from stdin)
+    #[arg(long = "args-json")]
+    pub args_json: Option<String>,
+
     /// Function name as subcommand, then arguments for that function as `--arg-name value`
     #[arg(last = true, id = "CONTRACT_FN_AND_ARGS")]
     pub slop: Vec<OsString>,
@@ -135,6 +139,9 @@ pub enum Error {
     #[error("parsing contract spec: {0}")]
     CannotParseContractSpec(FromWasmError),
 
+    #[error("invalid `--args-json`: {0}")]
+    InvalidArgsJson(String),
+
     #[error(transparent)]
     Xdr(#[from] xdr::Error),
 
@@ -202,7 +209,91 @@ impl From<Infallible> for Error {
     }
 }
 
+pub fn parse_args_json(json_str: &str, existing_slop: &[OsString]) -> Result<Vec<OsString>, Error> {
+    let parsed: serde_json::Value =
+        serde_json::from_str(json_str).map_err(|e| Error::InvalidArgsJson(e.to_string()))?;
+    let Some(obj) = parsed.as_object() else {
+        return Err(Error::InvalidArgsJson("expected a JSON object".to_string()));
+    };
+
+    let (fn_name, args_iter): (String, Vec<(&String, &serde_json::Value)>) = if let Some(
+        method_val,
+    ) =
+        obj.get("method").or_else(|| obj.get("function"))
+    {
+        let Some(method_str) = method_val.as_str() else {
+            return Err(Error::InvalidArgsJson(
+                "`method` must be a string".to_string(),
+            ));
+        };
+        if let Some(args_val) = obj.get("args") {
+            if args_val.is_null() {
+                (method_str.to_string(), Vec::new())
+            } else if let Some(args_map) = args_val.as_object() {
+                (method_str.to_string(), args_map.iter().collect())
+            } else {
+                return Err(Error::InvalidArgsJson(
+                    "`args` must be a JSON object".to_string(),
+                ));
+            }
+        } else {
+            let rest = obj
+                .iter()
+                .filter(|(k, _)| k.as_str() != "method" && k.as_str() != "function")
+                .collect();
+            (method_str.to_string(), rest)
+        }
+    } else {
+        let Some(first_slop) = existing_slop.first() else {
+            return Err(Error::InvalidArgsJson(
+                    "missing function name: include `\"method\"` in `--args-json` or pass the function name after `--`".to_string(),
+                ));
+        };
+        (
+            first_slop.to_string_lossy().to_string(),
+            obj.iter().collect(),
+        )
+    };
+
+    let mut slop = Vec::with_capacity(1 + args_iter.len() * 2);
+    slop.push(OsString::from(fn_name));
+
+    for (key, val) in args_iter {
+        if val.is_null() {
+            continue;
+        }
+        slop.push(OsString::from(format!("--{key}")));
+        match val {
+            serde_json::Value::String(s) => slop.push(OsString::from(s)),
+            other => slop.push(OsString::from(other.to_string())),
+        }
+    }
+
+    if existing_slop.len() > 1 {
+        slop.extend(existing_slop[1..].iter().cloned());
+    }
+
+    Ok(slop)
+}
+
 impl Cmd {
+    pub fn resolve_slop(&self) -> Result<Vec<OsString>, Error> {
+        let Some(raw_json) = &self.args_json else {
+            return Ok(self.slop.clone());
+        };
+
+        let json_str = if raw_json.trim() == "-" {
+            use std::io::Read;
+            let mut buf = String::new();
+            std::io::stdin().read_to_string(&mut buf)?;
+            buf
+        } else {
+            raw_json.clone()
+        };
+
+        parse_args_json(&json_str, &self.slop)
+    }
+
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let print = Print::new(global_args.quiet);
         let res = self.invoke(global_args).await?.to_envelope();
@@ -323,6 +414,7 @@ impl Cmd {
             .resolve_contract_id(&config.locator, &network.network_passphrase)?;
 
         let spec_entries = self.spec_entries()?;
+        let resolved_slop = self.resolve_slop()?;
 
         if let Some(spec_entries) = &spec_entries {
             // For testing wasm arg parsing
@@ -338,7 +430,7 @@ impl Cmd {
             } else {
                 build_host_function_parameters(
                     &contract_id,
-                    &self.slop,
+                    &resolved_slop,
                     spec_entries,
                     config,
                     &print,
@@ -377,7 +469,13 @@ impl Cmd {
                 &print,
             )?
         } else {
-            build_host_function_parameters(&contract_id, &self.slop, &spec_entries, config, &print)?
+            build_host_function_parameters(
+                &contract_id,
+                &resolved_slop,
+                &spec_entries,
+                config,
+                &print,
+            )?
         };
 
         let (function, spec, host_function_params, signers) = params;
@@ -568,4 +666,48 @@ fn has_auth(sim_res: &SimulateTransactionResponse) -> Result<bool, Error> {
         .results()?
         .iter()
         .any(|SimulateHostFunctionResult { auth, .. }| !auth.is_empty()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_args_json_with_method_and_args_object() {
+        let json = r#"{"method": "do_something", "args": {"num": 1, "complex_arg": {"field": 1}, "name": "alice"}}"#;
+        let slop = parse_args_json(json, &[]).unwrap();
+        assert_eq!(slop[0], OsString::from("do_something"));
+        assert!(slop
+            .windows(2)
+            .any(|w| w == [OsString::from("--num"), OsString::from("1")]));
+        assert!(slop.windows(2).any(|w| w
+            == [
+                OsString::from("--complex_arg"),
+                OsString::from(r#"{"field":1}"#)
+            ]));
+        assert!(slop
+            .windows(2)
+            .any(|w| w == [OsString::from("--name"), OsString::from("alice")]));
+    }
+
+    #[test]
+    fn parse_args_json_with_function_in_slop() {
+        let json = r#"{"num": 42, "opt": null}"#;
+        let slop = parse_args_json(json, &[OsString::from("do_something")]).unwrap();
+        assert_eq!(
+            slop,
+            vec![
+                OsString::from("do_something"),
+                OsString::from("--num"),
+                OsString::from("42"),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_args_json_errors_when_function_missing() {
+        let json = r#"{"num": 42}"#;
+        let err = parse_args_json(json, &[]).unwrap_err();
+        assert!(matches!(err, Error::InvalidArgsJson(_)));
+    }
 }
