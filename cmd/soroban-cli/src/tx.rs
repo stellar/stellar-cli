@@ -52,9 +52,8 @@ where
         + From<xdr::Error>,
 {
     let print = print::Print::new(quiet);
-    let network = config.get_network()?;
     print.infoln("Simulating transaction…");
-    let txn = simulate_and_assemble_transaction(
+    let assembled = simulate_and_assemble_transaction(
         client,
         tx,
         resources.resource_config(),
@@ -62,7 +61,42 @@ where
         auth_mode,
     )
     .await?;
-    let assembled = resources.apply_to_assembled_txn(txn);
+    sign_and_send_assembled_tx(
+        client,
+        assembled,
+        config,
+        resources,
+        auth_signers,
+        quiet,
+        no_cache,
+    )
+    .await
+}
+
+/// Signs and sends an already-assembled transaction to the network.
+///
+/// # Errors
+/// If any step of the process fails (signing, sending)
+pub async fn sign_and_send_assembled_tx<E>(
+    client: &soroban_rpc::Client,
+    assembled: crate::assembled::Assembled,
+    config: &config::Args,
+    resources: &resources::Args,
+    auth_signers: &[Signer],
+    quiet: bool,
+    no_cache: bool,
+) -> Result<GetTransactionResponse, E>
+where
+    E: From<soroban_rpc::Error>
+        + From<config::Error>
+        + From<fetch::Error>
+        + From<data::Error>
+        + From<network::Error>
+        + From<xdr::Error>,
+{
+    let print = print::Print::new(quiet);
+    let network = config.get_network()?;
+    let assembled = resources.apply_to_assembled_txn(assembled);
     let mut txn = Box::new(assembled.transaction().clone());
     let sim_res = assembled.sim_response();
 
@@ -79,6 +113,7 @@ where
         *txn = tx;
     }
 
+    let fee_source = txn.source_account.clone();
     let mut signed_tx = config.sign(*txn, quiet).await?;
 
     // If the simulation detected the need for a fee bump,
@@ -98,7 +133,7 @@ where
             }
         };
         let fee_bump = FeeBumpTransaction {
-            fee_source: tx.source_account.clone(),
+            fee_source,
             fee: fee_bump_fee,
             inner_tx: fee_bump_inner,
             ext: FeeBumpTransactionExt::V0,
