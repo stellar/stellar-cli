@@ -1,8 +1,9 @@
 use std::{fmt::Debug, path::Path, str::FromStr};
 
 use crate::{
+    assembled::simulate_and_assemble_transaction,
     log::extract_events,
-    tx::sim_sign_and_send_tx,
+    tx::sign_and_send_assembled_tx,
     xdr::{
         Error as XdrError, ExtensionPoint, LedgerEntry, LedgerEntryChange, LedgerEntryData,
         LedgerFootprint, Limits, Memo, Operation, OperationBody, Preconditions, RestoreFootprintOp,
@@ -149,6 +150,8 @@ impl Cmd {
             }
             .run(global_args)
             .await?;
+        } else if self.ttl_ledger_only {
+            println!("{expiration_ledger_seq}");
         } else {
             println!("New ttl ledger: {expiration_ledger_seq}");
         }
@@ -156,6 +159,7 @@ impl Cmd {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     pub async fn execute(
         &self,
         config: &config::Args,
@@ -209,15 +213,36 @@ impl Cmd {
             return Ok(TxnResult::Txn(tx));
         }
 
-        let res = sim_sign_and_send_tx::<Error>(
+        print.infoln("Simulating transaction…");
+        let assembled = simulate_and_assemble_transaction(
             &client,
             &tx,
+            self.resources.resource_config(),
+            self.resources.resource_fee,
+            None,
+        )
+        .await?;
+        let sim_res = assembled.sim_response();
+
+        // If the entry is already restored/live as of simulation, do not submit to the network.
+        let entry_resp = client.get_full_ledger_entries(&entry_keys).await?;
+        if is_already_restored(&entry_resp, sim_res) {
+            let extension = entry_resp
+                .entries
+                .first()
+                .ok_or(Error::LedgerEntryNotFound)?
+                .live_until_ledger_seq
+                .unwrap_or_default();
+            print.infoln("Ledger entry is already live, transaction was not submitted.");
+            return Ok(TxnResult::Res(extension));
+        }
+
+        let res = sign_and_send_assembled_tx::<Error>(
+            &client,
+            assembled,
             config,
             &self.resources,
             &[],
-            // Footprint restore is not an InvokeHostFunction op, so the RPC does
-            // not accept an auth mode.
-            None,
             quiet,
             no_cache,
         )
@@ -261,7 +286,9 @@ impl Cmd {
         tracing::debug!("Changes:\nlen:{}\n{changes:#?}", changes.len());
 
         if changes.is_empty() {
-            print.infoln("No changes detected, transaction was a no-op.");
+            print.infoln(
+                "No changes detected: entry is already live, someone may have just restored it simultaneously with you.",
+            );
             let entry = client.get_full_ledger_entries(&entry_keys).await?;
             // The fetch after a no-op can return no entries (e.g. the entry
             // was evicted in the meantime), so avoid indexing into an empty
@@ -279,6 +306,27 @@ impl Cmd {
         Ok(TxnResult::Res(
             parse_changes(&changes.to_vec()).ok_or(Error::LedgerEntryNotFound)?,
         ))
+    }
+}
+
+pub(crate) fn is_already_restored(
+    entry_resp: &soroban_rpc::FullLedgerEntries,
+    sim_res: &soroban_rpc::SimulateTransactionResponse,
+) -> bool {
+    let has_simulated_changes = sim_res
+        .state_changes
+        .as_ref()
+        .is_some_and(|changes| !changes.is_empty());
+
+    if has_simulated_changes {
+        return false;
+    }
+
+    if let Some(entry) = entry_resp.entries.first() {
+        let live_until = entry.live_until_ledger_seq.unwrap_or_default();
+        i64::from(live_until) >= entry_resp.latest_ledger || live_until >= sim_res.latest_ledger
+    } else {
+        false
     }
 }
 
@@ -546,5 +594,86 @@ mod tests {
 
         let result = parse_changes(&changes);
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_is_already_restored_when_entry_is_live() {
+        let entry_resp = soroban_rpc::FullLedgerEntries {
+            latest_ledger: 100,
+            entries: vec![soroban_rpc::FullLedgerEntry {
+                key: crate::xdr::LedgerKey::Account(crate::xdr::LedgerKeyAccount {
+                    account_id: crate::xdr::AccountId(crate::xdr::PublicKey::PublicKeyTypeEd25519(
+                        crate::xdr::Uint256([0; 32]),
+                    )),
+                }),
+                val: LedgerEntryData::Ttl(TtlEntry {
+                    live_until_ledger_seq: 200,
+                    key_hash: Hash([0; 32]),
+                }),
+                live_until_ledger_seq: Some(200),
+                last_modified_ledger: 50,
+            }],
+        };
+        let sim_res = soroban_rpc::SimulateTransactionResponse {
+            latest_ledger: 100,
+            state_changes: None,
+            ..Default::default()
+        };
+        assert!(is_already_restored(&entry_resp, &sim_res));
+    }
+
+    #[test]
+    fn test_is_already_restored_when_entry_is_archived() {
+        let entry_resp = soroban_rpc::FullLedgerEntries {
+            latest_ledger: 300,
+            entries: vec![soroban_rpc::FullLedgerEntry {
+                key: crate::xdr::LedgerKey::Account(crate::xdr::LedgerKeyAccount {
+                    account_id: crate::xdr::AccountId(crate::xdr::PublicKey::PublicKeyTypeEd25519(
+                        crate::xdr::Uint256([0; 32]),
+                    )),
+                }),
+                val: LedgerEntryData::Ttl(TtlEntry {
+                    live_until_ledger_seq: 200,
+                    key_hash: Hash([0; 32]),
+                }),
+                live_until_ledger_seq: Some(200),
+                last_modified_ledger: 50,
+            }],
+        };
+        let sim_res = soroban_rpc::SimulateTransactionResponse {
+            latest_ledger: 300,
+            state_changes: None,
+            ..Default::default()
+        };
+        assert!(!is_already_restored(&entry_resp, &sim_res));
+    }
+
+    #[test]
+    fn test_is_already_restored_when_sim_has_restore_changes() {
+        let entry_resp = soroban_rpc::FullLedgerEntries {
+            latest_ledger: 100,
+            entries: vec![soroban_rpc::FullLedgerEntry {
+                key: crate::xdr::LedgerKey::Account(crate::xdr::LedgerKeyAccount {
+                    account_id: crate::xdr::AccountId(crate::xdr::PublicKey::PublicKeyTypeEd25519(
+                        crate::xdr::Uint256([0; 32]),
+                    )),
+                }),
+                val: LedgerEntryData::Ttl(TtlEntry {
+                    live_until_ledger_seq: 200,
+                    key_hash: Hash([0; 32]),
+                }),
+                live_until_ledger_seq: Some(200),
+                last_modified_ledger: 50,
+            }],
+        };
+        let sim_res = soroban_rpc::SimulateTransactionResponse {
+            latest_ledger: 100,
+            state_changes: Some(vec![soroban_rpc::LedgerEntryChange::Created {
+                key: "dummy_key".to_string(),
+                after: "dummy_val".to_string(),
+            }]),
+            ..Default::default()
+        };
+        assert!(!is_already_restored(&entry_resp, &sim_res));
     }
 }
