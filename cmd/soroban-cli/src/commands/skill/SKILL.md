@@ -41,6 +41,7 @@ After `stellar keys use`, other commands sign and pay with that identity, so you
 - Clear the default: `stellar keys unset`
 
 Only pass `--source <name>` when a single command needs to override the default identity.
+- Predictable auth signatures: pass `--signature-expiration-ledger <ledger>` (or env `STELLAR_SIGNATURE_EXPIRATION_LEDGER`) to explicitly set the authorization expiration sequence instead of querying RPC `getLatestLedger`.
 
 ## Contracts: use aliases, don't stash contract ids in env vars
 
