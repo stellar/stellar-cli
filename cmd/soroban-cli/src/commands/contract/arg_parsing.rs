@@ -21,19 +21,21 @@ use stellar_xdr::ContractId;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to parse argument '{arg}': {error}\n\nContext: Expected type {expected_type}, but received: '{received_value}'\n\nSuggestion: {suggestion}")]
+    #[error("Failed to parse argument '{arg}': {error}\n\nContext: Expected type {expected_type}, but received: '{received_value}'\n\nSuggestion: {suggestion}{help}")]
     CannotParseArg {
         arg: String,
         error: soroban_spec_tools::Error,
         expected_type: String,
         received_value: String,
         suggestion: String,
+        help: String,
     },
-    #[error("Invalid JSON in argument '{arg}': {json_error}\n\nReceived value: '{received_value}'\n\nSuggestions:\n- Check for missing quotes around strings\n- Ensure proper JSON syntax (commas, brackets, etc.)\n- For complex objects, consider using --{arg}-file-path to load from a file")]
+    #[error("Invalid JSON in argument '{arg}': {json_error}\n\nReceived value: '{received_value}'\n\nSuggestions:\n- Check for missing quotes around strings\n- Ensure proper JSON syntax (commas, brackets, etc.)\n- For complex objects, consider using --{arg}-file-path to load from a file{help}")]
     InvalidJsonArg {
         arg: String,
         json_error: String,
         received_value: String,
+        help: String,
     },
     #[error("Type mismatch for argument '{arg}': expected {expected_type}, but got {actual_type}\n\nReceived value: '{received_value}'\n\nSuggestions:\n- For {expected_type}, ensure the value is properly formatted\n- Check the contract specification for the correct argument type")]
     TypeMismatch {
@@ -400,6 +402,7 @@ fn parse_file_argument(
             received_value: format!("{} bytes from file", bytes.len()),
             suggestion: "Ensure the file contains valid binary data for the expected byte type"
                 .to_string(),
+            help: get_arg_help_hint(name, type_def, spec),
         })
     } else {
         let file_contents =
@@ -594,14 +597,36 @@ fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> 
     Some(signer)
 }
 
+/// Helper to extract formatted help/example doc from Spec for an argument if available
+fn get_arg_help_hint(arg_name: &str, expected_type: &ScSpecTypeDef, spec: &Spec) -> String {
+    if let Ok(Some(doc)) = spec.doc(arg_name, expected_type) {
+        let sanitized = sanitize(doc);
+        let trimmed = sanitized.trim();
+        if !trimmed.is_empty() {
+            return format!("\n\nHelp:\n{trimmed}");
+        }
+    }
+    String::new()
+}
+
 /// Validates JSON string and returns a more descriptive error if invalid
+#[cfg(test)]
 fn validate_json_arg(arg_name: &str, value: &str) -> Result<(), Error> {
+    validate_json_arg_with_help(arg_name, value, String::new())
+}
+
+fn validate_json_arg_with_help(
+    arg_name: &str,
+    value: &str,
+    help: String,
+) -> Result<(), Error> {
     // Try to parse as JSON first
     if let Err(json_err) = serde_json::from_str::<serde_json::Value>(value) {
         return Err(Error::InvalidJsonArg {
             arg: arg_name.to_string(),
             json_error: json_err.to_string(),
             received_value: value.to_string(),
+            help,
         });
     }
     Ok(())
@@ -712,20 +737,47 @@ fn get_context_suggestions(expected_type: &ScSpecTypeDef, received_value: &str) 
                 "Check for proper string escaping if the string contains special characters".to_string()
             }
         }
+        ScSpecTypeDef::Bytes => {
+            "For bytes, provide a hex-encoded string (e.g., \"00aa11bb\")".to_string()
+        }
+        ScSpecTypeDef::BytesN(n) => {
+            format!(
+                "For bytes{0}, provide a hex-encoded string of exactly {0} bytes ({1} hex characters)",
+                n.n,
+                n.n * 2
+            )
+        }
         ScSpecTypeDef::Address => {
             "For addresses, use format: G... (account), C... (contract), or identity name (e.g., alice)".to_string()
         }
         ScSpecTypeDef::MuxedAddress => {
             "For muxed addresses, use format: M... or identity name".to_string()
         }
-        ScSpecTypeDef::Vec(_) => {
-            "For arrays, use JSON array format: [\"item1\", \"item2\"] or [{\"key\": \"value\"}]".to_string()
+        ScSpecTypeDef::Vec(inner) => {
+            if matches!(
+                inner.element_type.as_ref(),
+                ScSpecTypeDef::Bytes | ScSpecTypeDef::BytesN(_)
+            ) {
+                "For byte arrays, use JSON array format with hex-encoded strings: [\"0123...\", \"abcd...\"]"
+                    .to_string()
+            } else {
+                "For arrays, use JSON array format: [\"item1\", \"item2\"] or [{\"key\": \"value\"}]"
+                    .to_string()
+            }
         }
         ScSpecTypeDef::Map(_) => {
             "For maps, use JSON object format: {\"key1\": \"value1\", \"key2\": \"value2\"}".to_string()
         }
         ScSpecTypeDef::Option(_) => {
             "For optional values, use null for none or the expected value type".to_string()
+        }
+        ScSpecTypeDef::Tuple(_) => {
+            "For tuples, use JSON array format matching the expected element types: [elem1, elem2]"
+                .to_string()
+        }
+        ScSpecTypeDef::Udt(_) => {
+            "Check the contract specification for the expected struct or enum fields and values"
+                .to_string()
         }
         _ => {
             "Check the contract specification for the correct argument format and type".to_string()
@@ -753,8 +805,9 @@ fn parse_argument_with_validation(
     } else {
         false
     };
+    let help = get_arg_help_hint(arg_name, expected_type, spec);
     if !is_primitive_type(expected_type) && !is_union_udt {
-        validate_json_arg(arg_name, value)?;
+        validate_json_arg_with_help(arg_name, value, help.clone())?;
     }
 
     // Walk the input through resolve_aliases_in_json so identity aliases are
@@ -768,6 +821,7 @@ fn parse_argument_with_validation(
             expected_type: expected_type_name,
             received_value: value.to_string(),
             suggestion: get_context_suggestions(expected_type, value),
+            help,
         })
 }
 
@@ -1164,6 +1218,7 @@ mod tests {
             arg,
             json_error,
             received_value,
+            ..
         }) = result
         {
             assert_eq!(arg, "test_arg");
@@ -1411,6 +1466,7 @@ mod tests {
             suggestion:
                 "For numbers, ensure no quotes around the value (e.g., use 100 instead of \"100\")"
                     .to_string(),
+            help: String::new(),
         };
 
         let error_message = format!("{error}");
@@ -1917,5 +1973,79 @@ mod tests {
             bad_chars.is_empty(),
             "invoke help contains unexpected control characters {bad_chars:?}:\n{help:?}"
         );
+    }
+
+    #[test]
+    fn test_vec_bytes_n_arg_parsing_help_and_example() {
+        use stellar_xdr::{ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSymbol};
+
+        let vec_bytes32 = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 32 })),
+        }));
+        let spec = Spec(Some(vec![ScSpecEntry::FunctionV0(ScSpecFunctionV0 {
+            doc: "".try_into().unwrap(),
+            name: ScSymbol("choose_from".try_into().unwrap()),
+            inputs: vec![ScSpecFunctionInputV0 {
+                doc: "".try_into().unwrap(),
+                name: "hashes".try_into().unwrap(),
+                type_: vec_bytes32.clone(),
+            }]
+            .try_into()
+            .unwrap(),
+            outputs: vec![].try_into().unwrap(),
+        })]));
+        let config = crate::config::Args::default();
+
+        // 1. Invalid JSON (e.g. unquoted bare identifier) surfaces InvalidJsonArg with help & example
+        let err = parse_argument_with_validation(
+            "hashes",
+            "not_valid_json",
+            &vec_bytes32,
+            &spec,
+            &config,
+            &Print::new(false),
+        )
+        .unwrap_err();
+
+        let msg = format!("{err}");
+        assert!(msg.contains("Invalid JSON in argument 'hashes'"));
+        assert!(msg.contains("Help:"));
+        assert!(msg.contains("Example:"));
+        assert!(msg.contains("--hashes"));
+
+        // 2. Valid JSON array but invalid element (e.g. invalid hex for BytesN<32>)
+        // surfaces CannotParseArg with context suggestion, help & example
+        let err = parse_argument_with_validation(
+            "hashes",
+            r#"["not_hex"]"#,
+            &vec_bytes32,
+            &spec,
+            &config,
+            &Print::new(false),
+        )
+        .unwrap_err();
+
+        let msg = format!("{err}");
+        assert!(msg.contains("Failed to parse argument 'hashes'"));
+        assert!(msg.contains("Expected type vector of bytes32 (exactly 32 bytes)"));
+        assert!(msg.contains("For byte arrays, use JSON array format with hex-encoded strings"));
+        assert!(msg.contains("Help:"));
+        assert!(msg.contains("Example:"));
+        assert!(msg.contains("--hashes"));
+    }
+
+    #[test]
+    fn test_bytes_and_tuple_context_suggestions() {
+        let suggestion = get_context_suggestions(
+            &ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 32 }),
+            "abc",
+        );
+        assert!(suggestion.contains("exactly 32 bytes (64 hex characters)"));
+
+        let vec_bytes = ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+            element_type: Box::new(ScSpecTypeDef::Bytes),
+        }));
+        let suggestion = get_context_suggestions(&vec_bytes, "[123]");
+        assert!(suggestion.contains("For byte arrays, use JSON array format with hex-encoded strings"));
     }
 }
