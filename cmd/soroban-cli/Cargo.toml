@@ -98,6 +98,7 @@ dotenvy = "0.15.7"
 directories = { workspace = true }
 ulid = { workspace = true, features = ["serde"] }
 async-compression = { version = "0.4.12", features = ["tokio", "gzip"] }
+zstd = "0.13"
 shell-escape = "0.1.5"
 tempfile = "3.8.1"
 toml_edit = { workspace = true }
