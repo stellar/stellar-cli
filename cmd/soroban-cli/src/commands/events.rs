@@ -17,17 +17,13 @@ use crate::{
 #[group(skip)]
 pub struct Cmd {
     #[allow(clippy::doc_markdown)]
-    /// The first ledger sequence number in the range to pull events
+    /// The first ledger sequence number in the range to pull events (defaults to latest ledger)
     /// https://developers.stellar.org/docs/learn/encyclopedia/network-configuration/ledger-headers#ledger-sequence
-    #[arg(long, conflicts_with = "cursor", required_unless_present = "cursor")]
+    #[arg(long, conflicts_with = "cursor")]
     start_ledger: Option<u32>,
 
     /// The cursor corresponding to the start of the event range.
-    #[arg(
-        long,
-        conflicts_with = "start_ledger",
-        required_unless_present = "start_ledger"
-    )]
+    #[arg(long, conflicts_with = "start_ledger")]
     cursor: Option<String>,
 
     /// Output formatting options for event stream
@@ -438,12 +434,12 @@ impl Cmd {
     }
 
     pub async fn execute(&self, config: &config::Args) -> Result<rpc::GetEventsResponse, Error> {
-        let start = self.start()?;
         let network = config.get_network()?;
         let client = network.rpc_client()?;
         client
             .verify_network_passphrase(Some(&network.network_passphrase))
             .await?;
+        let start = self.start(&client).await?;
 
         let contract_ids: Vec<String> = self
             .contract_ids
@@ -509,12 +505,14 @@ impl Cmd {
         Ok(topic_filters)
     }
 
-    fn start(&self) -> Result<rpc::EventStart, Error> {
+    async fn start(&self, client: &rpc::Client) -> Result<rpc::EventStart, Error> {
         let start = match (self.start_ledger, self.cursor.clone()) {
             (Some(start), _) => rpc::EventStart::Ledger(start),
             (_, Some(c)) => rpc::EventStart::Cursor(c),
-            // should never happen because of required_unless_present flags
-            _ => return Err(Error::MissingStartLedgerAndCursor),
+            (None, None) => {
+                let latest = client.get_latest_ledger().await?.sequence;
+                rpc::EventStart::Ledger(latest)
+            }
         };
         Ok(start)
     }
@@ -561,5 +559,44 @@ mod tests {
         Cmd::write_decoded_event(&mut buf, &evil_decoded(), &evil_event()).unwrap();
         let output = String::from_utf8(buf.into_inner()).unwrap();
         assert_no_control_chars(&output);
+    }
+
+    #[test]
+    fn test_events_clap_args_defaults_without_start_or_cursor() {
+        use clap::Parser;
+
+        let cmd =
+            Cmd::try_parse_from(["events"]).expect("should parse without start_ledger or cursor");
+        assert_eq!(cmd.start_ledger, None);
+        assert_eq!(cmd.cursor, None);
+    }
+
+    #[test]
+    fn test_events_clap_args_with_start_ledger() {
+        use clap::Parser;
+
+        let cmd = Cmd::try_parse_from(["events", "--start-ledger", "12345"])
+            .expect("should parse with start_ledger");
+        assert_eq!(cmd.start_ledger, Some(12345));
+        assert_eq!(cmd.cursor, None);
+    }
+
+    #[test]
+    fn test_events_clap_args_with_cursor() {
+        use clap::Parser;
+
+        let cmd = Cmd::try_parse_from(["events", "--cursor", "0000000001-0000000001"])
+            .expect("should parse with cursor");
+        assert_eq!(cmd.start_ledger, None);
+        assert_eq!(cmd.cursor, Some("0000000001-0000000001".to_string()));
+    }
+
+    #[test]
+    fn test_events_clap_args_conflicts_start_ledger_and_cursor() {
+        use clap::Parser;
+
+        let err = Cmd::try_parse_from(["events", "--start-ledger", "12345", "--cursor", "0001"])
+            .expect_err("should reject both start_ledger and cursor");
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 }
