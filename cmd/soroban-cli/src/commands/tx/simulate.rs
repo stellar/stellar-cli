@@ -5,7 +5,7 @@ use crate::{
 };
 use std::ffi::OsString;
 
-use crate::commands::{config, global};
+use crate::commands::{config, global, tx::fetch};
 use crate::utils::XDR_DEPTH_LIMIT;
 
 #[derive(thiserror::Error, Debug)]
@@ -38,6 +38,10 @@ pub struct Cmd {
     #[arg(long)]
     pub instruction_leeway: Option<u64>,
 
+    /// Output the simulated cost execution to stderr
+    #[arg(long)]
+    pub cost: bool,
+
     #[command(flatten)]
     pub auth_mode: crate::auth_mode::Args,
 }
@@ -46,6 +50,11 @@ impl Cmd {
     pub async fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let res = self.execute(global_args, &self.config).await?;
         let tx_env: TransactionEnvelope = res.transaction().clone().into();
+        if self.cost {
+            let proposed = fetch::fee::FeeTable::extract_proposed_fees(&tx_env);
+            let (ins, read, write) = fetch::fee::extract_simulated_resources(&tx_env);
+            eprint!("{}", proposed.table_with_resources(ins, read, write));
+        }
         println!(
             "{}",
             tx_env.to_xdr_base64(xdr::Limits::depth(XDR_DEPTH_LIMIT))?
@@ -77,5 +86,20 @@ impl Cmd {
             print.warnln(format!("The transaction fee of {} is too large and needs to be wrapped in a fee bump transaction.", print::format_number(fee_bump_fee, 7)));
         }
         Ok(tx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn test_simulate_cmd_parse_cost_flag() {
+        let cmd = Cmd::parse_from(["simulate", "--source-account", "default", "--cost"]);
+        assert!(cmd.cost);
+
+        let cmd_default = Cmd::parse_from(["simulate", "--source-account", "default"]);
+        assert!(!cmd_default.cost);
     }
 }
