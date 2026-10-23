@@ -31,6 +31,7 @@ use crate::{
 
 pub mod archive;
 pub mod container;
+pub mod image;
 pub(crate) mod source_archive;
 
 /// A built WASM artifact with its package name and file path.
@@ -148,6 +149,7 @@ pub struct Cmd {
 #[derive(clap::Subcommand, Debug, Clone)]
 pub enum SubCommand {
     Archive(archive::Cmd),
+    Image(image::Cmd),
 }
 
 /// Shared build options for meta and optimization, reused by deploy and upload.
@@ -266,6 +268,9 @@ pub enum Error {
 
     #[error(transparent)]
     Archive(#[from] archive::Error),
+
+    #[error(transparent)]
+    Image(#[from] image::Error),
 }
 
 pub(crate) const WASM_TARGET: &str = "wasm32v1-none";
@@ -302,6 +307,10 @@ impl Cmd {
         // building; it produces no wasm artifacts.
         if let Some(SubCommand::Archive(cmd)) = &self.command {
             cmd.run(global_args)?;
+            return Ok(Vec::new());
+        }
+        if let Some(SubCommand::Image(cmd)) = &self.command {
+            cmd.run(global_args).await?;
             return Ok(Vec::new());
         }
 
