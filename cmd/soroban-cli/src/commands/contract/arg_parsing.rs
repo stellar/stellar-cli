@@ -705,6 +705,9 @@ fn get_context_suggestions(expected_type: &ScSpecTypeDef, received_value: &str) 
         ScSpecTypeDef::Bool => {
             "For booleans, use 'true' or 'false' (without quotes)".to_string()
         }
+        ScSpecTypeDef::Symbol => {
+            "For symbols, ensure the value contains only valid identifier characters (up to 32 characters)".to_string()
+        }
         ScSpecTypeDef::String => {
             if !received_value.starts_with('"') || !received_value.ends_with('"') {
                 "For strings, ensure the value is properly quoted (e.g., \"hello world\")".to_string()
@@ -1303,6 +1306,44 @@ mod tests {
             bare, quoted,
             "bare and quoted forms should produce identical ScVal"
         );
+    }
+
+    #[test]
+    fn test_symbol_numeric_and_boolean_parsing() {
+        let spec = Spec::default();
+        let expected_type = ScSpecTypeDef::Symbol;
+        let config = crate::config::Args::default();
+        let print = Print::new(false);
+
+        // Bare number
+        let val =
+            parse_argument_with_validation("sym", "123", &expected_type, &spec, &config, &print)
+                .unwrap();
+        assert_eq!(val, ScVal::Symbol("123".try_into().unwrap()));
+
+        // Quoted number
+        let val = parse_argument_with_validation(
+            "sym",
+            "\"123\"",
+            &expected_type,
+            &spec,
+            &config,
+            &print,
+        )
+        .unwrap();
+        assert_eq!(val, ScVal::Symbol("123".try_into().unwrap()));
+
+        // Boolean as symbol
+        let val =
+            parse_argument_with_validation("sym", "true", &expected_type, &spec, &config, &print)
+                .unwrap();
+        assert_eq!(val, ScVal::Symbol("true".try_into().unwrap()));
+
+        // Hex number as symbol
+        let val =
+            parse_argument_with_validation("sym", "465454", &expected_type, &spec, &config, &print)
+                .unwrap();
+        assert_eq!(val, ScVal::Symbol("465454".try_into().unwrap()));
     }
 
     #[test]
