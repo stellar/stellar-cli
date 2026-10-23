@@ -11,6 +11,7 @@ pub mod help;
 pub mod new;
 pub mod op;
 pub mod send;
+pub mod send_via_core;
 pub mod sign;
 pub mod simulate;
 pub mod update;
@@ -45,6 +46,9 @@ pub enum Cmd {
     Operation(op::Cmd),
     /// Send a transaction envelope to the network
     Send(send::Cmd),
+    /// Send a transaction envelope directly to a stellar-core HTTP endpoint
+    #[command(name = "send-via-core")]
+    SendViaCore(send_via_core::Cmd),
     /// Sign a transaction envelope appending the signature to the envelope
     Sign(sign::Cmd),
     /// Simulate a transaction envelope from stdin
@@ -69,6 +73,8 @@ pub enum Error {
     #[error(transparent)]
     Send(#[from] send::Error),
     #[error(transparent)]
+    SendViaCore(#[from] send_via_core::Error),
+    #[error(transparent)]
     Sign(#[from] sign::Error),
     #[error(transparent)]
     Args(#[from] args::Error),
@@ -92,6 +98,7 @@ impl Cmd {
             Cmd::Edit(cmd) => cmd.run(global_args)?,
             Cmd::Operation(cmd) => cmd.run(global_args)?,
             Cmd::Send(cmd) => cmd.run(global_args).await?,
+            Cmd::SendViaCore(cmd) => cmd.run(global_args).await?,
             Cmd::Sign(cmd) => cmd.run(global_args).await?,
             Cmd::Simulate(cmd) => cmd.run(global_args).await?,
             Cmd::Update(cmd) => cmd.run(global_args).await?,
