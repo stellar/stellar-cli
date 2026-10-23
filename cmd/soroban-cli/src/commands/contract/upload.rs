@@ -58,6 +58,15 @@ pub struct Cmd {
     #[arg(long, help_heading = HEADING_TRANSACTION)]
     pub build_only: bool,
 
+    /// Simulate the transaction only without signing or submitting to the network
+    #[arg(
+        long,
+        visible_alias = "is-view",
+        visible_alias = "sim-only",
+        help_heading = HEADING_TRANSACTION
+    )]
+    pub simulate_only: bool,
+
     /// Package to build when --wasm is not provided
     #[arg(long, help_heading = "Build Options", conflicts_with = "wasm")]
     pub package: Option<String>,
@@ -267,6 +276,26 @@ impl Cmd {
             return Ok(TxnResult::Txn(Box::new(tx_without_preflight)));
         }
 
+        if self.simulate_only {
+            print.infoln("Simulating transaction…");
+            let assembled = crate::assembled::simulate_and_assemble_transaction(
+                &client,
+                &tx_without_preflight,
+                self.resources.resource_config(),
+                self.resources.resource_fee,
+                self.auth_mode.to_rpc(),
+            )
+            .await?;
+            if let Ok(events) = assembled.sim_res.events() {
+                crate::log::event::all(&events);
+            }
+            let fee = assembled.transaction().fee;
+            print.checkln(format!(
+                "Simulation successful! Estimated fee: {fee} stroops"
+            ));
+            return Ok(TxnResult::Res(hash));
+        }
+
         let should_check = true;
 
         if should_check {
@@ -440,5 +469,20 @@ mod tests {
         soroban_spec_tools::test_utils::assert_no_control_chars(&version);
         // "rc" detection (used to gate the release-candidate check) still works.
         assert!(version.contains("rc"));
+    }
+
+    #[test]
+    fn parse_simulate_only_and_aliases() {
+        let cmd =
+            Cmd::try_parse_from(["upload", "--source-account", "alice", "--wasm", "test.wasm", "--simulate-only"]).unwrap();
+        assert!(cmd.simulate_only);
+
+        let cmd_is_view =
+            Cmd::try_parse_from(["upload", "--source-account", "alice", "--wasm", "test.wasm", "--is-view"]).unwrap();
+        assert!(cmd_is_view.simulate_only);
+
+        let cmd_sim_only =
+            Cmd::try_parse_from(["upload", "--source-account", "alice", "--wasm", "test.wasm", "--sim-only"]).unwrap();
+        assert!(cmd_sim_only.simulate_only);
     }
 }
