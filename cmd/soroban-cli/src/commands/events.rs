@@ -13,6 +13,38 @@ use crate::{
     utils::XDR_DEPTH_LIMIT,
 };
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, clap::ValueEnum, Default)]
+pub enum EventTypeFilter {
+    /// All events (contract, diagnostic, and system)
+    All,
+    /// Contract events emitted by smart contracts
+    #[default]
+    Contract,
+    /// Diagnostic events emitted by the host or contracts
+    Diagnostic,
+    /// System events emitted by the protocol
+    System,
+}
+
+impl EventTypeFilter {
+    fn as_rpc_event_type(self) -> rpc::EventType {
+        match self {
+            Self::All | Self::Diagnostic => rpc::EventType::All,
+            Self::Contract => rpc::EventType::Contract,
+            Self::System => rpc::EventType::System,
+        }
+    }
+
+    fn matches_event(self, event_type: &str) -> bool {
+        match self {
+            Self::All => true,
+            Self::Contract => event_type.eq_ignore_ascii_case("contract"),
+            Self::Diagnostic => event_type.eq_ignore_ascii_case("diagnostic"),
+            Self::System => event_type.eq_ignore_ascii_case("system"),
+        }
+    }
+}
+
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
@@ -47,6 +79,7 @@ pub struct Cmd {
     /// the command-line today, though that set can have multiple IDs/topics.
     #[arg(
         long = "id",
+        visible_alias = "contract-id",
         num_args = 1..=6,
         help_heading = "FILTERS"
     )]
@@ -79,10 +112,10 @@ pub struct Cmd {
     #[arg(
         long = "type",
         value_enum,
-        default_value = "all",
+        default_value = "contract",
         help_heading = "FILTERS"
     )]
-    event_type: rpc::EventType,
+    event_type: EventTypeFilter,
 
     #[command(flatten)]
     locator: locator::Args,
@@ -458,16 +491,22 @@ impl Cmd {
 
         let parsed_topics = self.parse_topics()?;
 
-        client
+        let mut response = client
             .get_events(
                 start,
-                Some(self.event_type),
+                Some(self.event_type.as_rpc_event_type()),
                 &contract_ids,
                 &parsed_topics,
                 Some(self.count),
             )
             .await
-            .map_err(Error::Rpc)
+            .map_err(Error::Rpc)?;
+
+        response
+            .events
+            .retain(|event| self.event_type.matches_event(&event.event_type));
+
+        Ok(response)
     }
 
     fn parse_topics(&self) -> Result<Vec<rpc::TopicFilter>, Error> {
@@ -561,5 +600,31 @@ mod tests {
         Cmd::write_decoded_event(&mut buf, &evil_decoded(), &evil_event()).unwrap();
         let output = String::from_utf8(buf.into_inner()).unwrap();
         assert_no_control_chars(&output);
+    }
+
+    #[test]
+    fn default_event_type_is_contract() {
+        let cmd = Cmd::try_parse_from(["events", "--start-ledger", "100"]).unwrap();
+        assert_eq!(cmd.event_type, EventTypeFilter::Contract);
+        assert!(cmd.event_type.matches_event("contract"));
+        assert!(!cmd.event_type.matches_event("diagnostic"));
+    }
+
+    #[test]
+    fn explicit_event_type_and_contract_id_alias() {
+        let cmd = Cmd::try_parse_from([
+            "events",
+            "--start-ledger",
+            "100",
+            "--type",
+            "diagnostic",
+            "--contract-id",
+            "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
+        ])
+        .unwrap();
+        assert_eq!(cmd.event_type, EventTypeFilter::Diagnostic);
+        assert!(cmd.event_type.matches_event("diagnostic"));
+        assert!(!cmd.event_type.matches_event("contract"));
+        assert_eq!(cmd.contract_ids.len(), 1);
     }
 }
