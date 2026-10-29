@@ -132,7 +132,7 @@ impl Spec {
             | ScType::String
             | ScType::Bool => String::new(),
             ScType::MuxedAddress => {
-                String::from("Can be public key (G13..), contract ID (C13...), or a muxed account (M13..), or an identity")
+                String::from("Can be public key (G13..), contract ID (C13...), a muxed account (M13..), a muxed contract (W13..), or an identity")
             }
             ScType::Address => String::from(
                 "Can be public key (G13..), a contract ID (C13...) or an identity (alice), ",
@@ -2248,6 +2248,42 @@ mod tests {
             Ok(_) => panic!("Expected ScVal::Address(ScAddress::MuxedAccount(_))"),
             Err(e) => panic!("Unexpected error parsing MuxedAddress: {e}"),
         }
+    }
+
+    #[test]
+    fn test_sc_muxed_contract_address_roundtrip() {
+        let expected_contract = [
+            0x36, 0x3e, 0xaa, 0x38, 0x67, 0x84, 0x1f, 0xba, 0xd0, 0xf4, 0xed, 0x88, 0xc7, 0x79,
+            0xe4, 0xfe, 0x66, 0xe5, 0x6a, 0x24, 0x70, 0xdc, 0x98, 0xc0, 0xec, 0x9c, 0x07, 0x3d,
+            0x05, 0xc7, 0xb1, 0x03,
+        ];
+        let expected_id = 1_754_924_385_537_090_737_u64;
+
+        let muxed_addr = format!(
+            "{}",
+            stellar_strkey::MuxedContract {
+                contract_id: expected_contract,
+                id: expected_id,
+            }
+        );
+
+        match sc_address_from_json(&muxed_addr) {
+            Ok(ScVal::Address(ScAddress::MuxedContract(MuxedContract {
+                id,
+                contract_id: ContractId(Hash(contract_id)),
+            }))) => {
+                assert_eq!(contract_id, expected_contract);
+                assert_eq!(id, expected_id);
+            }
+            Ok(_) => panic!("Expected ScVal::Address(ScAddress::MuxedContract(_))"),
+            Err(e) => panic!("Unexpected error parsing MuxedContract address: {e}"),
+        }
+
+        let address = ScAddress::MuxedContract(MuxedContract {
+            id: expected_id,
+            contract_id: ContractId(Hash(expected_contract)),
+        });
+        assert_eq!(sc_address_to_json(&address), Value::String(muxed_addr));
     }
 
     #[test]
