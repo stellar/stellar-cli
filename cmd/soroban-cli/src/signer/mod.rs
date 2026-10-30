@@ -130,25 +130,22 @@ pub async fn sign_soroban_authorizations(
         // See if we have a signer for this authorizationEntry
         // If not, then we Error
         let auth_address_bytes: &[u8; 32] = match address {
-            ScAddress::MuxedAccount(_) => todo!("muxed accounts are not supported"),
-            ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
-            ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
             ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
-            ScAddress::Contract(stellar_xdr::ContractId(Hash(c))) => {
-                // This address is for a contract. This means we're using a custom
-                // smart-contract account. Currently the CLI doesn't support that yet.
-                return Err(Error::MissingSignerForAddress {
-                    address: format!(
-                        "{}",
-                        stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
-                    ),
+            // Contracts (including muxed contracts) authorize via their own
+            // `__check_auth`, not a CLI keypair, so they can't be signed here.
+            ScAddress::Contract(_) | ScAddress::MuxedContract(_) => {
+                return Err(Error::ContractAddressAreNotSupported {
+                    address: address.to_string(),
                 });
             }
-            ScAddress::MuxedContract(_) => {
+            // Muxed accounts aren't yet resolved to a signer; reject rather than panic.
+            ScAddress::MuxedAccount(_) => {
                 return Err(Error::MissingSignerForAddress {
                     address: address.to_string(),
                 });
             }
+            ScAddress::ClaimableBalance(_) => todo!("claimable balance not supported"),
+            ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
         };
 
         // Auth entries should not request a signature from the tx source account via the `Address` credential type
@@ -535,6 +532,20 @@ mod tests {
         ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(bytes))))
     }
 
+    fn muxed_contract_address(contract: [u8; 32], id: u64) -> ScAddress {
+        ScAddress::MuxedContract(stellar_xdr::MuxedContract {
+            id,
+            contract_id: stellar_xdr::ContractId(Hash(contract)),
+        })
+    }
+
+    fn muxed_account_address(ed25519: [u8; 32], id: u64) -> ScAddress {
+        ScAddress::MuxedAccount(stellar_xdr::MuxedEd25519Account {
+            id,
+            ed25519: Uint256(ed25519),
+        })
+    }
+
     fn invoke_args(contract: [u8; 32], fn_name: &str) -> InvokeContractArgs {
         InvokeContractArgs {
             contract_address: ScAddress::Contract(stellar_xdr::ContractId(Hash(contract))),
@@ -744,6 +755,59 @@ mod tests {
         let result = sign_soroban_authorizations(
             &tx,
             &[],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
+        assert!(matches!(result, Err(Error::MissingSignerForAddress { .. })));
+    }
+
+    #[tokio::test]
+    async fn test_muxed_contract_address_is_rejected() {
+        let signer = local_signer([1u8; 32]);
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+
+        let entry = address_auth(
+            muxed_contract_address(contract, 7),
+            invocation(contract, "hello"),
+        );
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(Error::ContractAddressAreNotSupported { .. })
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_muxed_account_address_is_rejected_without_panicking() {
+        let signer = local_signer([1u8; 32]);
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+
+        let entry = address_auth(
+            muxed_account_address([5u8; 32], 7),
+            invocation(contract, "hello"),
+        );
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[signer],
             EXPIRATION_LEDGER,
             NETWORK,
             false,

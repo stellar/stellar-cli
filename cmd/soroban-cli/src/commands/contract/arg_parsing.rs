@@ -69,7 +69,7 @@ pub enum Error {
         expected: usize,
         actual: usize,
     },
-    #[error("Unsupported address type '{address}'\n\nSupported formats:\n- Account addresses: G... (starts with G)\n- Contract addresses: C... (starts with C)\n- Muxed accounts: M... (starts with M)\n- Identity names: alice, bob, etc.\n\nReceived: '{address}'")]
+    #[error("Unsupported address type '{address}'\n\nSupported formats:\n- Account addresses: G... (starts with G)\n- Contract addresses: C... (starts with C)\n- Muxed accounts: M... (starts with M)\n- Muxed contracts: W... (starts with W)\n- Identity names: alice, bob, etc.\n\nReceived: '{address}'")]
     UnsupportedScAddress { address: String },
     #[error("Duplicate map key '{key}' after alias resolution\n\nMultiple input keys resolved to the same address — likely an alias passed alongside its strkey, or two aliases pointing to the same identity.")]
     DuplicateMapKey { key: String },
