@@ -14,6 +14,7 @@ mod ledger;
 mod network;
 mod pull;
 mod secure_store;
+mod smart_account;
 mod snapshot;
 mod token;
 mod tx;

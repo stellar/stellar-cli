@@ -10,6 +10,7 @@ pub const HELLO_WORLD: &Wasm = &Wasm::Custom("test-wasms", "test_hello_world");
 pub const CONSTRUCTOR: &Wasm = &Wasm::Custom("test-wasms", "test_constructor");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
 pub const CUSTOM_ACCOUNT: &Wasm = &Wasm::Custom("test-wasms", "test_custom_account");
+pub const ED25519_ACCOUNT: &Wasm = &Wasm::Custom("test-wasms", "test_ed25519_account");
 pub const SWAP: &Wasm = &Wasm::Custom("test-wasms", "test_swap");
 
 pub async fn invoke(sandbox: &TestEnv, id: &str, func: &str, data: &str) -> String {

@@ -31,6 +31,7 @@ install:
 build-fixtures:
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/hello --root ./target --debug --quiet
 	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/bye --root ./target --debug --quiet
+	cargo install --force --locked --path ./cmd/crates/soroban-test/tests/fixtures/signer-ed25519 --root ./target --debug --quiet
 
 # regenerate the example lib in `cmd/crates/soroban-spec-typsecript/fixtures/ts`
 build-snapshot: typescript-bindings-fixtures

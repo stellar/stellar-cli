@@ -8,6 +8,7 @@ members = [
     "cmd/crates/soroban-test/tests/fixtures/test-wasms/*",
     "cmd/crates/soroban-test/tests/fixtures/hello",
     "cmd/crates/soroban-test/tests/fixtures/bye",
+    "cmd/crates/soroban-test/tests/fixtures/signer-ed25519",
 ]
 default-members = [
     "cmd/soroban-cli",

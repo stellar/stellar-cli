@@ -92,6 +92,31 @@ pub struct Cmd {
     /// secret key.
     #[arg(long)]
     pub hd_path: Option<u32>,
+
+    /// Add a smart account (contract address, C...). Its auth entries are
+    /// signed by the `stellar-signer-<NAME>` plugin named with
+    /// `--signer-plugin`.
+    #[arg(
+        long,
+        requires = "signer_plugin",
+        conflicts_with_all = ["public_key", "ledger", "seed_phrase", "secret_key", "secure_store", "hd_path"]
+    )]
+    pub smart_account: Option<key::Contract>,
+
+    /// Name of the signer plugin for `--smart-account`, run as
+    /// `stellar-signer-<NAME>` from your PATH
+    #[arg(long, requires = "smart_account", value_name = "NAME")]
+    pub signer_plugin: Option<String>,
+
+    /// Argument for the signer plugin, as KEY=VALUE. Can be repeated.
+    #[arg(long, requires = "signer_plugin", value_name = "KEY=VALUE", value_parser = parse_plugin_arg)]
+    pub plugin_arg: Vec<(String, String)>,
+}
+
+fn parse_plugin_arg(s: &str) -> Result<(String, String), String> {
+    s.split_once('=')
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .ok_or_else(|| format!("expected KEY=VALUE, got `{s}`"))
 }
 
 impl Cmd {
@@ -106,7 +131,15 @@ impl Cmd {
             print.exclaimln(format!("Overwriting identity '{}'", self.name));
         }
 
-        let key = if let Some(key) = self.public_key.as_ref() {
+        let key = if let (Some(address), Some(signer_plugin)) =
+            (self.smart_account, self.signer_plugin.as_ref())
+        {
+            key::Key::SmartAccount(key::SmartAccount {
+                address,
+                signer_plugin: signer_plugin.clone(),
+                plugin_args: self.plugin_arg.iter().cloned().collect(),
+            })
+        } else if let Some(key) = self.public_key.as_ref() {
             key::Key::parse_public_only(key)?
         } else if self.ledger {
             self.derive_ledger_secret().await?.into()
@@ -217,6 +250,7 @@ mod tests {
     use crate::config::key::{self as key_mod, Key};
 
     const PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
+    const CONTRACT: &str = "CADQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQP5KR";
     const MUXED_ACCOUNT: &str =
         "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
     const SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
@@ -240,6 +274,9 @@ mod tests {
             ledger: false,
             overwrite: false,
             hd_path: None,
+            smart_account: None,
+            signer_plugin: None,
+            plugin_arg: vec![],
         };
         (temp_dir, locator, cmd)
     }
@@ -375,6 +412,41 @@ mod tests {
         cmd.run(&global_args()).await.unwrap();
         let stored = locator.read_identity("test_name").unwrap();
         assert!(matches!(stored, Key::PublicKey(_)));
+    }
+
+    #[tokio::test]
+    async fn smart_account_flags_store_smart_account() {
+        use clap::Parser;
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let mut cmd = Cmd::try_parse_from([
+            "add",
+            "sa",
+            "--smart-account",
+            CONTRACT,
+            "--signer-plugin",
+            "oz",
+            "--plugin-arg",
+            "rule-id=1",
+        ])
+        .unwrap();
+        cmd.config_locator.config_dir = Some(temp_dir.path().to_path_buf());
+        cmd.run(&global_args()).await.unwrap();
+        let Key::SmartAccount(stored) = cmd.config_locator.read_identity("sa").unwrap() else {
+            panic!("expected a smart account");
+        };
+        assert_eq!(stored.address.to_string(), CONTRACT);
+        assert_eq!(stored.signer_plugin, "oz");
+        assert_eq!(stored.plugin_args["rule-id"], "1");
+    }
+
+    #[test]
+    fn test_clap_requires_signer_plugin_with_smart_account() {
+        use clap::Parser;
+
+        let err = Cmd::try_parse_from(["add", "sa", "--smart-account", CONTRACT])
+            .expect_err("--smart-account needs --signer-plugin");
+        assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument);
     }
 
     #[tokio::test]

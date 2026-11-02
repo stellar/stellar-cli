@@ -1,0 +1,14 @@
+[package]
+name = "stellar-signer-test-ed25519"
+version = "30.0.0"
+edition = "2021"
+publish = false
+
+# Test signer plugin for the `test_ed25519_account` smart account.
+
+[dependencies]
+base64 = { workspace = true }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+serde_json = { workspace = true }
+stellar-strkey = { workspace = true }

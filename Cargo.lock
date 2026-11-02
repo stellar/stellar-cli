@@ -5855,6 +5855,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellar-signer-test-ed25519"
+version = "30.0.0"
+dependencies = [
+ "base64 0.21.7",
+ "ed25519-dalek",
+ "hex",
+ "serde_json",
+ "stellar-strkey",
+]
+
+[[package]]
 name = "stellar-strkey"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6157,6 +6168,13 @@ dependencies = [
 
 [[package]]
 name = "test_custom_types"
+version = "30.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "test_ed25519_account"
 version = "30.0.0"
 dependencies = [
  "soroban-sdk",
