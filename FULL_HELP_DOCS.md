@@ -5020,6 +5020,8 @@ Generate arbitrary XDR values
 
   Default value: `20000`
 
+- `--entropy <ENTROPY>` — Drive generation with the bytes in this file, or stdin if '-', instead of with fresh randomness. Bytes are consumed the same way the fuzz targets consume them, so a fuzz corpus entry piped in here produces the value that entry stands for
+
 ## `stellar xdr xfile`
 
 Preprocess XDR .x files
@@ -5094,7 +5096,7 @@ Generate the zero strkey
 
 - `<STRKEY>` — Strkey type to generate the zero value for
 
-  Possible values: `public_key_ed25519`, `pre_auth_tx`, `hash_x`, `muxed_account_ed25519`, `signed_payload_ed25519`, `contract`, `liquidity_pool`, `claimable_balance_v0`
+  Possible values: `public_key_ed25519`, `pre_auth_tx`, `hash_x`, `muxed_account_ed25519`, `signed_payload_ed25519`, `contract`, `liquidity_pool`, `claimable_balance_v0`, `muxed_contract`
 
 ###### **Options:**
 
