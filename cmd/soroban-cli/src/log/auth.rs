@@ -3,10 +3,9 @@ use std::fmt::Write;
 use soroban_spec_tools::sanitize;
 
 use crate::xdr::{
-    AccountId, ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
-    CreateContractArgs, CreateContractArgsV2, Hash, InvokeContractArgs, PublicKey, ScAddress,
-    ScVal, SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanAuthorizedInvocation,
-    SorobanCredentials, Uint256, VecM,
+    ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress, CreateContractArgs,
+    CreateContractArgsV2, Hash, InvokeContractArgs, ScAddress, ScVal, SorobanAuthorizationEntry,
+    SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, Uint256, VecM,
 };
 
 /// Format a single auth entry for display.
@@ -150,23 +149,7 @@ fn format_create_contract(
 
 /// Format an ScAddress as a strkey string for display.
 fn format_address(address: &ScAddress) -> String {
-    match address {
-        ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(bytes)))) => {
-            format!(
-                "{}",
-                stellar_strkey::Strkey::PublicKeyEd25519(stellar_strkey::ed25519::PublicKey(
-                    *bytes
-                ))
-            )
-        }
-        ScAddress::Contract(stellar_xdr::ContractId(stellar_xdr::Hash(bytes))) => {
-            format!(
-                "{}",
-                stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*bytes))
-            )
-        }
-        _ => format!("{address:?}"),
-    }
+    address.to_string()
 }
 
 #[cfg(test)]
@@ -228,5 +211,24 @@ mod tests {
         };
 
         assert_no_control_chars(&format_auth_entry(&entry));
+    }
+
+    #[test]
+    fn format_address_renders_muxed_contract_as_strkey() {
+        let contract = [7u8; 32];
+        let id = 42u64;
+        let address = ScAddress::MuxedContract(stellar_xdr::MuxedContract {
+            id,
+            contract_id: stellar_xdr::ContractId(Hash(contract)),
+        });
+
+        let expected = format!(
+            "{}",
+            stellar_strkey::MuxedContract {
+                contract_id: contract,
+                id,
+            }
+        );
+        assert_eq!(format_address(&address), expected);
     }
 }

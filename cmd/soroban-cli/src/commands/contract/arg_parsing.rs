@@ -69,7 +69,7 @@ pub enum Error {
         expected: usize,
         actual: usize,
     },
-    #[error("Unsupported address type '{address}'\n\nSupported formats:\n- Account addresses: G... (starts with G)\n- Contract addresses: C... (starts with C)\n- Muxed accounts: M... (starts with M)\n- Identity names: alice, bob, etc.\n\nReceived: '{address}'")]
+    #[error("Unsupported address type '{address}'\n\nSupported formats:\n- Account addresses: G... (starts with G)\n- Contract addresses: C... (starts with C)\n- Muxed accounts: M... (starts with M)\n- Muxed contracts: W... (starts with W)\n- Identity names: alice, bob, etc.\n\nReceived: '{address}'")]
     UnsupportedScAddress { address: String },
     #[error("Duplicate map key '{key}' after alias resolution\n\nMultiple input keys resolved to the same address — likely an alias passed alongside its strkey, or two aliases pointing to the same identity.")]
     DuplicateMapKey { key: String },
@@ -627,7 +627,7 @@ fn get_type_name(type_def: &ScSpecTypeDef) -> String {
         ScSpecTypeDef::Address => {
             "address (G... for account, C... for contract, or identity name)".to_string()
         }
-        ScSpecTypeDef::MuxedAddress => "muxed address (M... or identity name)".to_string(),
+        ScSpecTypeDef::MuxedAddress => "muxed address (M... or W... or identity name)".to_string(),
         ScSpecTypeDef::Void => "void (no value)".to_string(),
         ScSpecTypeDef::Error => "error".to_string(),
         ScSpecTypeDef::Timepoint => "timepoint (timestamp)".to_string(),
@@ -716,7 +716,7 @@ fn get_context_suggestions(expected_type: &ScSpecTypeDef, received_value: &str) 
             "For addresses, use format: G... (account), C... (contract), or identity name (e.g., alice)".to_string()
         }
         ScSpecTypeDef::MuxedAddress => {
-            "For muxed addresses, use format: M... or identity name".to_string()
+            "For muxed addresses, use format: M... or W... or identity name".to_string()
         }
         ScSpecTypeDef::Vec(_) => {
             "For arrays, use JSON array format: [\"item1\", \"item2\"] or [{\"key\": \"value\"}]".to_string()
@@ -1041,6 +1041,10 @@ mod tests {
             get_type_name(&ScSpecTypeDef::Address),
             "address (G... for account, C... for contract, or identity name)"
         );
+        assert_eq!(
+            get_type_name(&ScSpecTypeDef::MuxedAddress),
+            "muxed address (M... or W... or identity name)"
+        );
     }
 
     #[test]
@@ -1212,6 +1216,10 @@ mod tests {
         // Test address type
         let suggestion = get_context_suggestions(&ScSpecTypeDef::Address, "invalid_addr");
         assert!(suggestion.contains("G... (account), C... (contract)"));
+
+        // Test muxed address type
+        let suggestion = get_context_suggestions(&ScSpecTypeDef::MuxedAddress, "invalid_addr");
+        assert!(suggestion.contains("M... or W... or identity name"));
 
         // Test boolean type
         let suggestion = get_context_suggestions(&ScSpecTypeDef::Bool, "yes");
