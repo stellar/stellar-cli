@@ -1321,6 +1321,9 @@ Add a new identity (keypair, ledger, OS specific secure store)
 - `--ledger` — Derive the address from a connected Ledger hardware wallet at `m/44'/148'/N'`, where `N` defaults to 0 and can be set with `--hd-path`. Persists the derived public key (and `--hd-path`, when provided) so later commands work without the device
 - `--overwrite` — Overwrite existing identity if it already exists. When combined with --secure-store, also replaces the existing Secure Store entry
 - `--hd-path <HD_PATH>` — When importing a seed phrase, which `hd_path` to derive the key at. Persisted on the identity so later commands derive the same account without re-passing the flag. Not valid with `--public-key` or a raw secret key
+- `--smart-account <SMART_ACCOUNT>` — Add a smart account (contract address, C...). Its auth entries are signed by the `stellar-signer-<NAME>` plugin named with `--signer-plugin`
+- `--signer-plugin <NAME>` — Name of the signer plugin for `--smart-account`, run as `stellar-signer-<NAME>` from your PATH
+- `--plugin-arg <KEY=VALUE>` — Argument for the signer plugin, as KEY=VALUE. Can be repeated
 
 ## `stellar keys public-key`
 

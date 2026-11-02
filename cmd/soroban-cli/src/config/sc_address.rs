@@ -151,6 +151,9 @@ impl UnresolvedScAddress {
             // downgrading to its base `G…` account: collapsing it would target a
             // different recipient than the one named. Contexts that can't accept
             // a muxed address reject it up front (see `is_muxed`).
+            (_, Ok(key::Key::SmartAccount(account))) => Ok(xdr::ScAddress::Contract(
+                stellar_xdr::ContractId(xdr::Hash(account.address.0 .0)),
+            )),
             (_, Ok(key)) => Ok(match key.muxed_account(hd_path)? {
                 xdr::MuxedAccount::Ed25519(ed25519) => xdr::ScAddress::Account(xdr::AccountId(
                     xdr::PublicKey::PublicKeyTypeEd25519(ed25519),

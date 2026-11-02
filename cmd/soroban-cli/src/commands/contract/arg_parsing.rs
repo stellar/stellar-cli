@@ -3,7 +3,7 @@ use crate::commands::contract::deploy::wasm::CONSTRUCTOR_FUNCTION_NAME;
 use crate::commands::txn_result::TxnResult;
 use crate::config::{self, sc_address, UnresolvedScAddress};
 use crate::print::Print;
-use crate::signer::{self, Signer};
+use crate::signer::{self, plugin::PluginSigner, Signer, SignerKind};
 use crate::xdr::{
     self, Hash, InvokeContractArgs, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScVal, ScVec,
 };
@@ -584,6 +584,17 @@ fn resolve_address(
 }
 
 fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> {
+    if let Ok(config::key::Key::SmartAccount(account)) = config.locator.read_identity(addr_or_alias)
+    {
+        return Some(Signer {
+            kind: SignerKind::Plugin(PluginSigner {
+                address: account.address.0,
+                plugin: account.signer_plugin,
+                args: account.plugin_args,
+            }),
+            print: Print::new(false),
+        });
+    }
     let account: config::UnresolvedMuxedAccount = addr_or_alias.parse().ok()?;
     // A raw public key is matched to an identity at `--hd-path`, so the signer
     // is built at that same path; an alias or secret honors it the same way.

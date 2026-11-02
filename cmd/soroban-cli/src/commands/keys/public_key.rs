@@ -1,6 +1,6 @@
 use crate::{
     commands::config::{address, locator},
-    config::UnresolvedMuxedAccount,
+    config::{key::Key, UnresolvedMuxedAccount},
     signer::ledger,
 };
 
@@ -37,6 +37,12 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
+        if let Some(UnresolvedMuxedAccount::AliasOrSecret(name)) = &self.name {
+            if let Ok(Key::SmartAccount(account)) = self.locator.read_identity(name) {
+                println!("{}", account.address);
+                return Ok(());
+            }
+        }
         println!("{}", self.public_key().await?);
         Ok(())
     }

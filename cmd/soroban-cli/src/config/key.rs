@@ -1,4 +1,4 @@
-use std::{fmt::Display, str::FromStr};
+use std::{collections::BTreeMap, fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +17,8 @@ pub enum Error {
     Parse,
     #[error("expected a public key (G...) or muxed account (M...)")]
     PublicKeyExpected,
+    #[error("smart account {0} is a contract, not an account; it can't be a transaction source or sign one")]
+    SmartAccountNotAnAccount(stellar_strkey::Contract),
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -25,6 +27,8 @@ pub enum Key {
     PublicKey(Public),
     #[serde(rename = "muxed_account")]
     MuxedAccount(MuxedAccount),
+    #[serde(rename = "smart_account")]
+    SmartAccount(SmartAccount),
     #[serde(untagged)]
     Secret(Secret),
 }
@@ -43,6 +47,9 @@ impl Key {
                     id: *id,
                 }))
             }
+            Key::SmartAccount(account) => {
+                return Err(Error::SmartAccountNotAnAccount(account.address.0));
+            }
         };
         Ok(xdr::MuxedAccount::Ed25519(xdr::Uint256(bytes)))
     }
@@ -60,7 +67,7 @@ impl Key {
     pub fn parse_public_only(s: &str) -> Result<Self, Error> {
         match s.parse()? {
             key @ (Key::PublicKey(_) | Key::MuxedAccount(_)) => Ok(key),
-            Key::Secret(_) => Err(Error::PublicKeyExpected),
+            Key::Secret(_) | Key::SmartAccount(_) => Err(Error::PublicKeyExpected),
         }
     }
 }
@@ -79,6 +86,36 @@ impl FromStr for Key {
             return Ok(Key::MuxedAccount(muxed_account));
         }
         Err(Error::Parse)
+    }
+}
+
+/// A contract account whose auth entries are signed by the external
+/// `stellar-signer-<signer_plugin>` binary.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SmartAccount {
+    pub address: Contract,
+    pub signer_plugin: String,
+    /// Passed through to the plugin as `args`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub plugin_args: BTreeMap<String, String>,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr,
+)]
+pub struct Contract(pub stellar_strkey::Contract);
+
+impl FromStr for Contract {
+    type Err = stellar_strkey::DecodeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Contract(stellar_strkey::Contract::from_string(s)?))
+    }
+}
+
+impl Display for Contract {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -184,6 +221,19 @@ mod test {
         let secret = Secret::SecretKey { secret_key };
         let key = Key::Secret(secret);
         round_trip(&key);
+    }
+    #[test]
+    fn smart_account() {
+        let key = Key::SmartAccount(SmartAccount {
+            address: Contract(stellar_strkey::Contract([7; 32])),
+            signer_plugin: "oz".to_string(),
+            plugin_args: BTreeMap::from([("rule-id".to_string(), "1".to_string())]),
+        });
+        round_trip(&key);
+        assert!(matches!(
+            key.muxed_account(None),
+            Err(Error::SmartAccountNotAnAccount(_))
+        ));
     }
     #[test]
     fn secret_seed_phrase() {

@@ -7,8 +7,8 @@ use crate::{
         HashIdPreimageSorobanAuthorization, HashIdPreimageSorobanAuthorizationWithAddress, Limits,
         MuxedAccount, Operation, OperationBody, PublicKey, ScAddress, ScMap, ScSymbol, ScVal,
         Signature, SignatureHint, SorobanAddressCredentials, SorobanAuthorizationEntry,
-        SorobanCredentials, Transaction, TransactionEnvelope, TransactionV1Envelope, Uint256, VecM,
-        WriteXdr,
+        SorobanAuthorizedInvocation, SorobanCredentials, Transaction, TransactionEnvelope,
+        TransactionV1Envelope, Uint256, VecM, WriteXdr,
     },
 };
 use ed25519_dalek::{ed25519::signature::Signer as _, Signature as Ed25519Signature};
@@ -19,6 +19,7 @@ use crate::{config::network::Network, print::Print, utils::transaction_hash};
 use std::io::{self, BufRead, IsTerminal};
 
 pub mod ledger;
+pub mod plugin;
 pub mod validation;
 
 #[cfg(feature = "additional-libs")]
@@ -62,6 +63,12 @@ pub enum Error {
     Decode(#[from] stellar_strkey::DecodeError),
     #[error(transparent)]
     Validation(#[from] validation::Error),
+    #[error(transparent)]
+    Plugin(#[from] plugin::Error),
+    #[error("Smart account {address} has no signer plugin. Add one with `stellar keys add <name> --smart-account {address} --signer-plugin <plugin>` and pass that name as the address")]
+    MissingPluginForContract { address: String },
+    #[error("Signer plugins only sign authorization entries, not transactions")]
+    PluginCannotSignTransaction,
 }
 
 /// Sign all SorobanAuthorizationEntry's in the transaction with the given signers. Returns a new
@@ -135,14 +142,26 @@ pub async fn sign_soroban_authorizations(
             ScAddress::LiquidityPool(_) => todo!("liquidity pool not supported"),
             ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(ref a)))) => a,
             ScAddress::Contract(stellar_xdr::ContractId(Hash(c))) => {
-                // This address is for a contract. This means we're using a custom
-                // smart-contract account. Currently the CLI doesn't support that yet.
-                return Err(Error::MissingSignerForAddress {
-                    address: format!(
-                        "{}",
-                        stellar_strkey::Strkey::Contract(stellar_strkey::Contract(*c))
-                    ),
+                // A smart account: only a plugin that knows its `__check_auth`
+                // can sign for it.
+                let plugin = signers.iter().find_map(|s| match &s.kind {
+                    SignerKind::Plugin(p) if p.address.0 == *c => Some(p),
+                    _ => None,
                 });
+                let Some(plugin) = plugin else {
+                    return Err(Error::MissingPluginForContract {
+                        address: format!("{}", stellar_strkey::Contract(*c)),
+                    });
+                };
+                signed_auths.push(sign_soroban_authorization_entry_with_plugin(
+                    raw_auth,
+                    plugin,
+                    signature_expiration_ledger,
+                    network_passphrase,
+                    &network_id,
+                )?);
+                auths_modified = true;
+                continue;
             }
             ScAddress::MuxedContract(_) => {
                 return Err(Error::MissingSignerForAddress {
@@ -161,6 +180,9 @@ pub async fn sign_soroban_authorizations(
 
         let mut signer: Option<&Signer> = None;
         for s in signers {
+            if matches!(s.kind, SignerKind::Plugin(_)) {
+                continue;
+            }
             if auth_address_bytes == &s.get_public_key()?.0 {
                 signer = Some(s);
                 break;
@@ -250,27 +272,16 @@ fn confirm_non_strict_authorization(auth: &SorobanAuthorizationEntry) -> Result<
     }
 }
 
-async fn sign_soroban_authorization_entry(
-    raw: &SorobanAuthorizationEntry,
-    signer: &Signer,
+/// The hash an `Address` (V1) or `AddressV2` credential signs. V2 binds the
+/// signer's address into the payload (CAP-0071-02) via the
+/// `SorobanAuthorizationWithAddress` preimage; V1 omits it.
+fn auth_payload(
+    credentials: &SorobanAddressCredentials,
+    is_v2: bool,
+    invocation: SorobanAuthorizedInvocation,
     signature_expiration_ledger: u32,
     network_id: &Hash,
-) -> Result<SorobanAuthorizationEntry, Error> {
-    let mut auth = raw.clone();
-    let invocation = auth.root_invocation.clone();
-    // `Address` (V1) and `AddressV2` share the same credential struct; only the
-    // signature payload differs. The RPC returns V1 by default, but we sign
-    // whichever variant the entry carries and preserve it on the way out.
-    let (credentials, is_v2) = match &mut auth.credentials {
-        SorobanCredentials::Address(credentials) => (credentials, false),
-        SorobanCredentials::AddressV2(credentials) => (credentials, true),
-        // SourceAccount does not need special signing
-        // AddressWithDelegates is not supported yet, and a warning is emitted earlier
-        _ => return Ok(auth),
-    };
-
-    // V2 binds the signer's address into the payload (CAP-0071-02) via the
-    // `SorobanAuthorizationWithAddress` preimage; V1 omits it.
+) -> Result<[u8; 32], Error> {
     let preimage = if is_v2 {
         HashIdPreimage::SorobanAuthorizationWithAddress(
             HashIdPreimageSorobanAuthorizationWithAddress {
@@ -290,10 +301,69 @@ async fn sign_soroban_authorization_entry(
         })
     }
     .to_xdr(Limits::depth(XDR_DEPTH_LIMIT))?;
+    Ok(Sha256::digest(preimage).into())
+}
 
-    let payload = Sha256::digest(preimage);
-    let p: [u8; 32] = payload.as_slice().try_into()?;
-    let signature = signer.sign_payload(p).await?;
+fn sign_soroban_authorization_entry_with_plugin(
+    raw: &SorobanAuthorizationEntry,
+    plugin: &plugin::PluginSigner,
+    signature_expiration_ledger: u32,
+    network_passphrase: &str,
+    network_id: &Hash,
+) -> Result<SorobanAuthorizationEntry, Error> {
+    let mut auth = raw.clone();
+    let invocation = auth.root_invocation.clone();
+    let (credentials, is_v2) = match &mut auth.credentials {
+        SorobanCredentials::Address(credentials) => (credentials, false),
+        SorobanCredentials::AddressV2(credentials) => (credentials, true),
+        _ => return Ok(auth),
+    };
+    let payload = auth_payload(
+        credentials,
+        is_v2,
+        invocation.clone(),
+        signature_expiration_ledger,
+        network_id,
+    )?;
+    credentials.signature = plugin.sign_auth(
+        network_passphrase,
+        credentials.nonce,
+        signature_expiration_ledger,
+        is_v2,
+        payload,
+        &invocation,
+    )?;
+    credentials.signature_expiration_ledger = signature_expiration_ledger;
+    Ok(auth)
+}
+
+async fn sign_soroban_authorization_entry(
+    raw: &SorobanAuthorizationEntry,
+    signer: &Signer,
+    signature_expiration_ledger: u32,
+    network_id: &Hash,
+) -> Result<SorobanAuthorizationEntry, Error> {
+    let mut auth = raw.clone();
+    let invocation = auth.root_invocation.clone();
+    // `Address` (V1) and `AddressV2` share the same credential struct; only the
+    // signature payload differs. The RPC returns V1 by default, but we sign
+    // whichever variant the entry carries and preserve it on the way out.
+    let (credentials, is_v2) = match &mut auth.credentials {
+        SorobanCredentials::Address(credentials) => (credentials, false),
+        SorobanCredentials::AddressV2(credentials) => (credentials, true),
+        // SourceAccount does not need special signing
+        // AddressWithDelegates is not supported yet, and a warning is emitted earlier
+        _ => return Ok(auth),
+    };
+
+    let payload = auth_payload(
+        credentials,
+        is_v2,
+        invocation,
+        signature_expiration_ledger,
+        network_id,
+    )?;
+    let signature = signer.sign_payload(payload).await?;
     let public_key_vec = signer.get_public_key()?.0.to_vec();
 
     let map = ScMap::sorted_from(vec![
@@ -331,6 +401,7 @@ pub enum SignerKind {
     Ledger(LedgerEntry),
     Lab,
     SecureStore(SecureStoreEntry),
+    Plugin(plugin::PluginSigner),
 }
 
 // It is advised to use the sign_with module, which handles creating a Signer with the appropriate SignerKind
@@ -393,6 +464,7 @@ impl Signer {
                 .expect("Ledger signers reachable here are built from Secret::Ledger and always carry a cached public key")),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => secure_store_entry.get_public_key(),
+            SignerKind::Plugin(_) => Err(Error::PluginCannotSignTransaction),
         }
     }
 
@@ -402,6 +474,7 @@ impl Signer {
             SignerKind::Ledger(ledger) => Ok(ledger.sign_payload(payload).await?),
             SignerKind::Lab => Err(Error::ReturningSignatureFromLab),
             SignerKind::SecureStore(secure_store_entry) => secure_store_entry.sign_payload(payload),
+            SignerKind::Plugin(_) => Err(Error::PluginCannotSignTransaction),
         }
     }
 
@@ -416,6 +489,7 @@ impl Signer {
             SignerKind::Lab => Lab::sign_tx_env(tx_env, network, &self.print),
             SignerKind::Ledger(ledger) => ledger.sign_tx_hash(tx_hash).await.map_err(Error::from),
             SignerKind::SecureStore(entry) => entry.sign_tx_hash(tx_hash),
+            SignerKind::Plugin(_) => Err(Error::PluginCannotSignTransaction),
         }
     }
 }
@@ -928,5 +1002,110 @@ mod tests {
             first_address_creds(&v2_signed).signature,
             "V2 must bind the address, producing a different signature than V1",
         );
+    }
+
+    // ---- Smart accounts (contract addresses) ----
+
+    fn contract_address(bytes: [u8; 32]) -> ScAddress {
+        ScAddress::Contract(stellar_xdr::ContractId(Hash(bytes)))
+    }
+
+    fn plugin_signer(contract: [u8; 32], plugin: &str) -> Signer {
+        Signer {
+            kind: SignerKind::Plugin(plugin::PluginSigner {
+                address: stellar_strkey::Contract(contract),
+                plugin: plugin.to_string(),
+                args: std::collections::BTreeMap::new(),
+            }),
+            print: Print::new(true),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_contract_address_without_plugin_errors() {
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+        let entry = address_auth(contract_address([7u8; 32]), invocation(contract, "hello"));
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        // A plugin for a different smart account doesn't count.
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[local_signer([1u8; 32]), plugin_signer([8u8; 32], "unused")],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(Error::MissingPluginForContract { .. })
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_contract_address_runs_its_plugin() {
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+        let account = [7u8; 32];
+        let entry = address_auth(contract_address(account), invocation(contract, "hello"));
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[plugin_signer(account, "definitely-not-installed")],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(Error::Plugin(plugin::Error::NotFound { bin }))
+                if bin == "stellar-signer-definitely-not-installed"
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_plugin_signer_does_not_match_g_address() {
+        let signer = local_signer([1u8; 32]);
+        let signer_pk = signer_pubkey(&signer);
+        let source = MuxedAccount::Ed25519(Uint256([9u8; 32]));
+        let contract = [42u8; 32];
+        let entry = address_auth(ed25519_address(signer_pk), invocation(contract, "hello"));
+        let host_fn = HostFunction::InvokeContract(invoke_args(contract, "hello"));
+        let tx = build_tx(source, host_fn, vec![entry]);
+
+        // A plugin signer earlier in the list is skipped, not an error.
+        let result = sign_soroban_authorizations(
+            &tx,
+            &[plugin_signer([7u8; 32], "unused"), signer],
+            EXPIRATION_LEDGER,
+            NETWORK,
+            false,
+            &Print::new(true),
+        )
+        .await
+        .unwrap();
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_auth_payload_v1_and_v2_differ() {
+        let network_id = Hash(Sha256::digest(NETWORK.as_bytes()).into());
+        let creds = SorobanAddressCredentials {
+            address: contract_address([7u8; 32]),
+            nonce: 3,
+            signature_expiration_ledger: 0,
+            signature: ScVal::Void,
+        };
+        let inv = invocation([42u8; 32], "hello");
+        let v1 = auth_payload(&creds, false, inv.clone(), EXPIRATION_LEDGER, &network_id).unwrap();
+        let v2 = auth_payload(&creds, true, inv, EXPIRATION_LEDGER, &network_id).unwrap();
+        assert_ne!(v1, v2);
     }
 }

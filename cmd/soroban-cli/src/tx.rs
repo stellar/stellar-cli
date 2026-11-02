@@ -62,7 +62,7 @@ where
         auth_mode,
     )
     .await?;
-    let assembled = resources.apply_to_assembled_txn(txn);
+    let mut assembled = resources.apply_to_assembled_txn(txn);
     let mut txn = Box::new(assembled.transaction().clone());
     let sim_res = assembled.sim_response();
 
@@ -77,6 +77,25 @@ where
         .await?
     {
         *txn = tx;
+        // Recording-mode simulation doesn't run a smart account's `__check_auth`,
+        // so its footprint and fee miss that call. Re-simulate with the signed
+        // entries to capture it.
+        if auth_signers
+            .iter()
+            .any(|s| matches!(s.kind, signer::SignerKind::Plugin(_)))
+        {
+            print.infoln("Re-simulating with smart account signatures…");
+            let resimulated = simulate_and_assemble_transaction(
+                client,
+                &txn,
+                resources.resource_config(),
+                resources.resource_fee,
+                Some(soroban_rpc::AuthMode::Enforce),
+            )
+            .await?;
+            assembled = resources.apply_to_assembled_txn(resimulated);
+            *txn = assembled.transaction().clone();
+        }
     }
 
     let mut signed_tx = config.sign(*txn, quiet).await?;

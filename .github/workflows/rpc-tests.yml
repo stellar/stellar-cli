@@ -51,6 +51,7 @@ jobs:
         run:
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
       - run: cargo build --features additional-libs
+      - run: cargo build --package stellar-signer-test-ed25519
       - run: rustup target add wasm32v1-none
       - run: make build-test-wasms
       - run:
