@@ -6,6 +6,7 @@ use humantime::format_duration;
 use itertools::{Either, Itertools};
 use sha2::{Digest, Sha256};
 use soroban_ledger_snapshot::LedgerSnapshot;
+use soroban_spec_tools::sanitize;
 use std::{
     collections::HashSet,
     fs,
@@ -203,7 +204,12 @@ impl Cmd {
         let network_id = Sha256::digest(network_passphrase);
 
         print.infoln(format!("Ledger: {ledger}"));
-        print.infoln(format!("Network Passphrase: {network_passphrase}"));
+        // The passphrase comes from the history archive JSON, so sanitize it to
+        // keep a hostile archive from smuggling terminal-escape sequences.
+        print.infoln(format!(
+            "Network Passphrase: {}",
+            sanitize(network_passphrase)
+        ));
         print.infoln(format!("Network id: {}", hex::encode(network_id)));
 
         // Get ledger close time and base reserve from archive
