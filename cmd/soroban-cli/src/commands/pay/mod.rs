@@ -101,6 +101,9 @@ pub enum Error {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
 
+    #[error("failed to write the resource to stdout: {0}")]
+    Io(#[from] std::io::Error),
+
     #[error("the server returned status {status} for `{url}`:\n{body}")]
     UnexpectedStatus {
         status: u16,
@@ -124,6 +127,7 @@ impl Error {
             Error::Cap(e) => e.error_type(),
             Error::Payment(e) => e.error_type(),
             Error::Serde(_) => "internal",
+            Error::Io(_) => "io",
             Error::UnexpectedStatus { .. } => "unexpected_status",
             Error::PaymentRejected { .. } => "payment_rejected",
         }
@@ -275,7 +279,7 @@ impl Cmd {
         // Human-readable output writes the fetched resource body to stdout so it
         // stays pipeable; JSON mode writes the full receipt.
         if !output.is_json() {
-            println!("{}", paid.body_string());
+            write_body(&mut std::io::stdout().lock(), &paid.body)?;
         }
         output.json_value(&receipt)?;
 
@@ -294,7 +298,7 @@ impl Cmd {
         }
         output.readable(|print| print.infoln("No payment required."));
         if !output.is_json() {
-            println!("{}", response.body_string());
+            write_body(&mut std::io::stdout().lock(), &response.body)?;
         }
         output.json_value(&resource_response(&response))?;
         Ok(())
@@ -315,6 +319,13 @@ fn emit_proof(output: &Output, payment_signature: String, payload: Value) -> Res
         payload,
     })?;
     Ok(())
+}
+
+/// Write a fetched resource body to `out` byte-for-byte, so binary resources
+/// survive redirection to a file.
+fn write_body(out: &mut impl std::io::Write, body: &[u8]) -> std::io::Result<()> {
+    out.write_all(body)?;
+    out.flush()
 }
 
 /// Decode an HTTP response body into the receipt's resource field, preferring a
@@ -381,6 +392,14 @@ mod tests {
                 "extra": { "areFeesSponsored": true }
             }]
         })
+    }
+
+    #[test]
+    fn body_is_written_byte_for_byte() {
+        let body = [0x89, b'P', b'N', b'G', 0xff, 0x00, b'\n', 0xfe];
+        let mut out = Vec::new();
+        write_body(&mut out, &body).unwrap();
+        assert_eq!(out, body);
     }
 
     #[tokio::test]
