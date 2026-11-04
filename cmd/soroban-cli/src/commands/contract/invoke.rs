@@ -144,6 +144,9 @@ pub enum Error {
     #[error(transparent)]
     Rpc(#[from] rpc::Error),
 
+    #[error("refusing to sign the payment: {0}")]
+    UnsafePaymentAuthorization(&'static str),
+
     #[error("missing operation result")]
     MissingOperationResult,
 
@@ -556,6 +559,21 @@ impl Cmd {
         .await?;
         let assembled = self.resources.apply_to_assembled_txn(assembled);
         let tx = assembled.transaction().clone();
+
+        let [Operation {
+            body: OperationBody::InvokeHostFunction(op),
+            ..
+        }] = tx.operations.as_slice()
+        else {
+            return Err(Error::UnsafePaymentAuthorization(
+                "it must be a single contract call",
+            ));
+        };
+        if let Some(reason) =
+            crate::signer::validation::payment_authorization_violation(&op.host_function, &op.auth)
+        {
+            return Err(Error::UnsafePaymentAuthorization(reason));
+        }
 
         let signed = crate::signer::sign_soroban_authorizations(
             &tx,
