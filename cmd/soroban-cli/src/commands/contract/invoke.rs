@@ -575,6 +575,17 @@ impl Cmd {
             return Err(Error::UnsafePaymentAuthorization(reason));
         }
 
+        // The payer is the source account, so honor the signing options for it;
+        // otherwise fall back to the signers resolved from the arguments.
+        let signers = match config
+            .sign_with
+            .auth_signer(&config.locator, &print)
+            .map_err(config::Error::from)?
+        {
+            Some(signer) => vec![signer],
+            None => signers,
+        };
+
         let signed = crate::signer::sign_soroban_authorizations(
             &tx,
             &signers,
