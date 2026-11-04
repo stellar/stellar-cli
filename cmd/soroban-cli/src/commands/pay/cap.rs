@@ -7,6 +7,8 @@
 
 use std::str::FromStr;
 
+use crate::commands::token::args::MAX_DECIMALS;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("invalid --max-amount `{0}`: expected a decimal amount or `none` to disable")]
@@ -27,6 +29,9 @@ pub enum Error {
          or disable it with `--max-amount none`."
     )]
     Exceeded { required: i128, cap: i128 },
+
+    #[error("the asset's {decimals} decimals exceed the supported maximum of {MAX_DECIMALS}")]
+    DecimalsTooLarge { decimals: u32 },
 }
 
 impl Error {
@@ -38,6 +43,7 @@ impl Error {
             Error::TooPrecise { .. } => "max_amount_too_precise",
             Error::Overflow(_) => "max_amount_overflow",
             Error::Exceeded { .. } => "max_amount_exceeded",
+            Error::DecimalsTooLarge { .. } => "asset_decimals_too_large",
         }
     }
 }
@@ -111,6 +117,9 @@ fn validate_decimal(s: &str) -> Result<(), Error> {
 /// the asset supports rather than silently rounding.
 fn decimal_to_raw(s: &str, decimals: u32) -> Result<i128, Error> {
     validate_decimal(s)?;
+    if decimals > MAX_DECIMALS {
+        return Err(Error::DecimalsTooLarge { decimals });
+    }
     let (int_part, frac_part) = s.split_once('.').unwrap_or((s, ""));
     let scale = decimals as usize;
     if frac_part.len() > scale {
@@ -184,6 +193,15 @@ mod tests {
     fn excess_precision_is_rejected() {
         let err = decimal_to_raw("1.12345678", 7).unwrap_err();
         assert_eq!(err.error_type(), "max_amount_too_precise");
+    }
+
+    #[test]
+    fn oversized_decimals_are_rejected_before_scaling() {
+        let err = decimal_to_raw("1", MAX_DECIMALS + 1).unwrap_err();
+        assert_eq!(err.error_type(), "asset_decimals_too_large");
+        let err = decimal_to_raw("1", u32::MAX).unwrap_err();
+        assert_eq!(err.error_type(), "asset_decimals_too_large");
+        assert!(decimal_to_raw("0", MAX_DECIMALS).is_ok());
     }
 
     #[test]
