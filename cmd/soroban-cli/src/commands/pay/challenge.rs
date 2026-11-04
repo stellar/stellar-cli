@@ -200,41 +200,37 @@ impl Challenge {
     /// Select the `exact`-scheme option whose network matches `network_passphrase`,
     /// returning both the raw option (to echo in the proof) and its typed view.
     ///
-    /// Errors if no option targets the configured network, or the matching option
-    /// uses an unsupported scheme or doesn't sponsor fees.
+    /// Errors if no option targets the configured network, or none of the options
+    /// that do uses the `exact` scheme with sponsored fees.
     pub fn select_stellar(&self, network_passphrase: &str) -> Result<(Value, Requirements), Error> {
         let mut offered = Vec::new();
-        let mut matched: Option<(Value, Requirements)> = None;
+        let mut unsupported: Option<Error> = None;
 
         for raw in &self.accepts {
-            let req: Requirements = match serde_json::from_value(raw.clone()) {
-                Ok(req) => req,
-                Err(_) => continue,
+            let Ok(req) = serde_json::from_value::<Requirements>(raw.clone()) else {
+                continue;
             };
             offered.push(req.network.clone());
-            if passphrase_for_caip2(&req.network) == Some(network_passphrase) {
-                matched = Some((raw.clone(), req));
-                break;
+            if passphrase_for_caip2(&req.network) != Some(network_passphrase) {
+                continue;
+            }
+            if req.scheme != "exact" {
+                unsupported.get_or_insert(Error::UnsupportedScheme(req.scheme));
+            } else if !req.fees_sponsored() {
+                unsupported.get_or_insert(Error::FeesNotSponsored);
+            } else {
+                return Ok((raw.clone(), req));
             }
         }
 
-        let (raw, req) = matched.ok_or_else(|| Error::NoMatchingRequirement {
+        Err(unsupported.unwrap_or_else(|| Error::NoMatchingRequirement {
             network: network_passphrase.to_string(),
             offered: if offered.is_empty() {
                 "(none)".to_string()
             } else {
                 offered.join(", ")
             },
-        })?;
-
-        if req.scheme != "exact" {
-            return Err(Error::UnsupportedScheme(req.scheme));
-        }
-        if !req.fees_sponsored() {
-            return Err(Error::FeesNotSponsored);
-        }
-
-        Ok((raw, req))
+        }))
     }
 }
 
@@ -362,6 +358,21 @@ mod tests {
         let challenge = Challenge::parse(None, &serde_json::to_vec(&value).unwrap()).unwrap();
         let err = challenge.select_stellar(TESTNET_PASSPHRASE).unwrap_err();
         assert_eq!(err.error_type(), "fees_not_sponsored");
+    }
+
+    #[test]
+    fn later_supported_option_is_selected_over_earlier_unsupported_ones() {
+        let mut value = sample_challenge();
+        let valid = value["accepts"][0].clone();
+        let mut unsponsored = valid.clone();
+        unsponsored["extra"]["areFeesSponsored"] = json!(false);
+        let mut other_scheme = valid.clone();
+        other_scheme["scheme"] = json!("upto");
+        value["accepts"] = json!([unsponsored, other_scheme, valid]);
+        let challenge = Challenge::parse(None, &serde_json::to_vec(&value).unwrap()).unwrap();
+        let (raw, req) = challenge.select_stellar(TESTNET_PASSPHRASE).unwrap();
+        assert_eq!(raw, valid);
+        assert!(req.fees_sponsored());
     }
 
     #[test]
