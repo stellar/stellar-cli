@@ -21,9 +21,13 @@ pub const PAYMENT_RESPONSE_HEADER: &str = "PAYMENT-RESPONSE";
 const STELLAR_TESTNET_CAIP2: &str = "stellar:testnet";
 /// CAIP-2 network id for Stellar mainnet, as used in `accepts[].network`.
 const STELLAR_PUBNET_CAIP2: &str = "stellar:pubnet";
+/// Network id for a local standalone network. Not part of the x402 spec; lets
+/// checkout run against a local network.
+const STELLAR_LOCAL_CAIP2: &str = "stellar:local";
 
 const TESTNET_PASSPHRASE: &str = "Test SDF Network ; September 2015";
 const PUBNET_PASSPHRASE: &str = "Public Global Stellar Network ; September 2015";
+const LOCAL_PASSPHRASE: &str = "Standalone Network ; February 2017";
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -140,7 +144,7 @@ impl Requirements {
     }
 }
 
-/// Map a CAIP-2 Stellar network id (`stellar:testnet` / `stellar:pubnet`) to the
+/// Map a Stellar network id (`stellar:testnet` / `stellar:pubnet` / `stellar:local`) to the
 /// network passphrase used for signing. Returns `None` for ids this client
 /// doesn't recognize.
 #[must_use]
@@ -148,6 +152,7 @@ pub fn passphrase_for_caip2(network: &str) -> Option<&'static str> {
     match network {
         STELLAR_TESTNET_CAIP2 => Some(TESTNET_PASSPHRASE),
         STELLAR_PUBNET_CAIP2 => Some(PUBNET_PASSPHRASE),
+        STELLAR_LOCAL_CAIP2 => Some(LOCAL_PASSPHRASE),
         _ => None,
     }
 }
@@ -341,6 +346,14 @@ mod tests {
         assert!(req.fees_sponsored());
         // The raw option is preserved verbatim for echoing in the proof.
         assert_eq!(raw["payTo"], req.pay_to);
+    }
+
+    #[test]
+    fn local_network_is_recognized() {
+        assert_eq!(
+            passphrase_for_caip2("stellar:local"),
+            Some("Standalone Network ; February 2017")
+        );
     }
 
     #[test]
