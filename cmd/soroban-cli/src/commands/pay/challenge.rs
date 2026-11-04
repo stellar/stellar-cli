@@ -85,6 +85,8 @@ pub struct Challenge {
     pub x402_version: u32,
     pub accepts: Vec<Value>,
     pub resource: Option<Value>,
+    /// Why the server rejected a payment, on a `402` returned for a replayed request.
+    pub error: Option<String>,
 }
 
 /// The typed subset of a payment requirement the client needs to build the
@@ -188,6 +190,10 @@ impl Challenge {
             x402_version,
             accepts,
             resource,
+            error: value
+                .get("error")
+                .and_then(Value::as_str)
+                .map(str::to_string),
         })
     }
 
@@ -240,6 +246,10 @@ pub struct Settlement {
     pub transaction: Option<String>,
     #[serde(default)]
     pub network: Option<String>,
+    #[serde(rename = "errorReason", default)]
+    pub error_reason: Option<String>,
+    #[serde(rename = "errorMessage", default)]
+    pub error_message: Option<String>,
 }
 
 impl Settlement {
@@ -254,6 +264,25 @@ impl Settlement {
             header: PAYMENT_RESPONSE_HEADER,
         })
     }
+}
+
+/// Why the server rejected a replayed payment: the facilitator's settlement
+/// failure from `PAYMENT-RESPONSE`, else the verification failure carried in a
+/// fresh `PAYMENT-REQUIRED` declaration.
+#[must_use]
+pub fn rejection_reason(
+    payment_response: Option<&str>,
+    payment_required: Option<&str>,
+) -> Option<String> {
+    let settlement = payment_response
+        .and_then(|header| Settlement::parse(header).ok())
+        .and_then(|s| s.error_message.or(s.error_reason));
+    settlement.or_else(|| {
+        payment_required
+            .filter(|header| !header.is_empty())
+            .and_then(|header| Challenge::parse(Some(header), b"").ok())
+            .and_then(|c| c.error)
+    })
 }
 
 /// Encode a payment proof payload as a base64-encoded JSON `PAYMENT-SIGNATURE`
@@ -355,6 +384,50 @@ mod tests {
         );
         let settlement = Settlement::parse(&header).unwrap();
         assert_eq!(settlement.transaction.as_deref(), Some("abc123"));
+    }
+
+    fn encode(value: &Value) -> String {
+        BASE64.encode(serde_json::to_vec(value).unwrap())
+    }
+
+    #[test]
+    fn rejection_reason_reads_verification_error_from_payment_required() {
+        let mut value = sample_challenge();
+        value["error"] = json!("invalid_exact_stellar_payload_malformed");
+        assert_eq!(
+            rejection_reason(None, Some(&encode(&value))).as_deref(),
+            Some("invalid_exact_stellar_payload_malformed")
+        );
+    }
+
+    #[test]
+    fn rejection_reason_prefers_settlement_failure_message() {
+        let settlement = json!({
+            "success": false,
+            "errorReason": "transaction_failed",
+            "errorMessage": "transaction failed on-chain",
+        });
+        let mut challenge = sample_challenge();
+        challenge["error"] = json!("other");
+        assert_eq!(
+            rejection_reason(Some(&encode(&settlement)), Some(&encode(&challenge))).as_deref(),
+            Some("transaction failed on-chain")
+        );
+    }
+
+    #[test]
+    fn rejection_reason_falls_back_to_settlement_reason() {
+        let settlement = json!({ "success": false, "errorReason": "transaction_failed" });
+        assert_eq!(
+            rejection_reason(Some(&encode(&settlement)), None).as_deref(),
+            Some("transaction_failed")
+        );
+    }
+
+    #[test]
+    fn rejection_reason_is_none_without_headers() {
+        assert_eq!(rejection_reason(None, None), None);
+        assert_eq!(rejection_reason(Some("not base64!!"), Some("")), None);
     }
 
     #[test]

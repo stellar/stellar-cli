@@ -108,8 +108,8 @@ pub enum Error {
         body: String,
     },
 
-    #[error("the payment was rejected (status {status}):\n{body}")]
-    PaymentRejected { status: u16, body: String },
+    #[error("the payment was rejected (status {status}): {reason}")]
+    PaymentRejected { status: u16, reason: String },
 }
 
 impl Error {
@@ -235,9 +235,14 @@ impl Cmd {
         output.readable(|print| print.globeln("Submitting payment…"));
         let paid = http::get(&self.url, Some(&payment_signature)).await?;
         if !(200..300).contains(&paid.status) {
+            let reason = challenge::rejection_reason(
+                paid.header(challenge::PAYMENT_RESPONSE_HEADER).as_deref(),
+                paid.header(challenge::PAYMENT_REQUIRED_HEADER).as_deref(),
+            )
+            .unwrap_or_else(|| paid.body_string());
             return Err(Error::PaymentRejected {
                 status: paid.status,
-                body: paid.body_string(),
+                reason,
             });
         }
 
