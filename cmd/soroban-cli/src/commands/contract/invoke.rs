@@ -505,6 +505,9 @@ impl Cmd {
             .contract_id
             .resolve_contract_id(&config.locator, &network.network_passphrase)?;
         let client = network.rpc_client()?;
+        client
+            .verify_network_passphrase(Some(&network.network_passphrase))
+            .await?;
 
         let global_args = global::Args {
             locator: config.locator.clone(),

@@ -462,6 +462,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rpc_on_a_different_network_is_rejected_before_signing() {
+        let mut server = mockito::Server::new_async().await;
+        let _challenge = server
+            .mock("GET", "/pay")
+            .with_status(402)
+            .with_body(serde_json::to_string(&testnet_challenge()).unwrap())
+            .create_async()
+            .await;
+        let _latest_ledger = server
+            .mock("POST", "/rpc")
+            .match_body(mockito::Matcher::Regex("getLatestLedger".into()))
+            .with_body(
+                r#"{"jsonrpc":"2.0","id":0,"result":{"id":"x","protocolVersion":23,"sequence":10}}"#,
+            )
+            .create_async()
+            .await;
+        let _network = server
+            .mock("POST", "/rpc")
+            .match_body(mockito::Matcher::Regex("getNetwork".into()))
+            .with_body(format!(
+                r#"{{"jsonrpc":"2.0","id":0,"result":{{"passphrase":"{PUBNET_PASSPHRASE}","protocolVersion":23}}}}"#
+            ))
+            .create_async()
+            .await;
+
+        let mut cmd = cmd(
+            format!("{}/pay", server.url()),
+            TESTNET_PASSPHRASE,
+            MaxAmount::Unlimited,
+        );
+        cmd.network.rpc_url = Some(format!("{}/rpc", server.url()));
+        cmd.source_account = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ"
+            .parse()
+            .unwrap();
+        let err = cmd.run(&global()).await.unwrap_err();
+        assert!(
+            err.to_string().contains(PUBNET_PASSPHRASE),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[tokio::test]
     async fn malformed_challenge_is_rejected() {
         let mut server = mockito::Server::new_async().await;
         let _mock = server
