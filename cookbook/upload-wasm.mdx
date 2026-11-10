@@ -1,8 +1,6 @@
 ---
 title: Upload Wasm bytecode
-hide_table_of_contents: true
 description: Use the Stellar CLI to upload a compiled smart contract on the ledger
-custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/upload-wasm.mdx
 ---
 
 To use the Stellar CLI to upload a compiled smart contract on the ledger, use the `stellar contract upload` command:
@@ -14,8 +12,8 @@ stellar contract upload \
     --wasm ../relative/path/to/soroban_contract.wasm
 ```
 
-:::note
+<Note>
 
 Note this command will return the hash ID of the Wasm bytecode, rather than an address for a contract instance.
 
-:::
+</Note>
