@@ -16,4 +16,3 @@ jobs:
     uses: stellar/stellar-docs/.github/workflows/cli-build.yml@ci/stellar-cli-reusable-check
     with:
       stellar-cli-ref: ${{ github.sha }}
-      stellar-docs-ref: ci/stellar-cli-reusable-check
