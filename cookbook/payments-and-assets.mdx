@@ -5,13 +5,19 @@ description: Send XLM and other Stellar assets using the Stellar CLI
 
 To send payments and work with assets using the Stellar CLI, follow these steps:
 
-1. Set your preferred network. This guide uses `testnet`. See [Networks](/docs/networks) for the list of available networks.
+<Steps>
+
+<Step title="Set your preferred network">
+
+This guide uses `testnet`. See [Networks](/docs/networks) for the list of available networks.
 
 ```bash
 stellar network use testnet
 ```
 
-2. Fund the accounts:
+</Step>
+
+<Step title="Generate and fund the accounts">
 
 ```bash
 stellar keys generate alice
@@ -29,19 +35,27 @@ stellar keys generate bob
 stellar keys fund bob
 ```
 
-3. Get the contract ID of the native asset's Stellar Asset Contract:
+</Step>
+
+<Step title="Get the native asset's contract ID">
 
 ```bash
 stellar contract id asset --asset native
 ```
 
-4. Get Bob's public key:
+</Step>
+
+<Step title="Get Bob's public key">
 
 ```bash
 stellar keys address bob
 ```
 
-5. Send 100 XLM from Alice to Bob:
+</Step>
+
+<Step title="Send XLM from Alice to Bob">
+
+The Stellar Asset Contract takes amounts in stroops (1 XLM = 10,000,000 stroops), so this sends 100 stroops:
 
 ```bash
 stellar keys use alice
@@ -51,10 +65,16 @@ stellar keys use alice
 stellar contract invoke --id <ASSET_CONTRACT_ID> -- transfer --to bob --from alice --amount 100
 ```
 
-6. Check Bob's balance:
+</Step>
+
+<Step title="Check Bob's balance">
 
 ```bash
 stellar contract invoke --id <ASSET_CONTRACT_ID> -- balance --id bob
 ```
+
+</Step>
+
+</Steps>
 
 For more information on the functions available on the Stellar Asset Contract, see the [token interface code](/docs/tokens/token-interface#code).
