@@ -5,7 +5,7 @@ description: Deploy an SAC for a Stellar asset so that it can interact with smar
 
 The Stellar CLI can deploy a [Stellar Asset Contract] for a Stellar asset so that any Stellar smart contract can interact with the asset.
 
-Every Stellar asset has reserved a contract that anyone can deploy. Once deployed any contract can interact with that asset by holding a balance of the asset, receiving the asset, or sending the asset.
+Every Stellar asset has reserved a contract that anyone can deploy. Once deployed, any contract can interact with that asset by holding a balance of the asset, receiving the asset, or sending the asset.
 
 Deploying the Stellar Asset Contract for a Stellar asset enables that asset for use in smart contracts.
 
@@ -20,7 +20,7 @@ stellar contract asset deploy \
     --asset USDC:GCYEIQEWOCTTSA72VPZ6LYIZIK4W4KNGJR72UADIXUXG45VDFRVCQTYE
 ```
 
-The `asset` argument corresponds to the symbol and it's issuer address, which is how assets are identified on Stellar.
+The `--asset` argument takes the asset code and its issuer address, which is how assets are identified on Stellar.
 
 The same can be done for the native [Lumens] asset:
 
@@ -33,7 +33,7 @@ stellar contract asset deploy \
 
 <Note>
 
-Deploying the native asset will fail on testnet or mainnet as a Stellar Asset Contract already exists.
+Deploying the native asset fails on testnet and mainnet, because its Stellar Asset Contract already exists.
 
 </Note>
 
@@ -45,9 +45,5 @@ stellar contract id asset \
     --asset native
 ```
 
-[stellar asset contract]: ../../../tokens/stellar-asset-contract.mdx
-[lumens]: ../../../learn/fundamentals/lumens.mdx
-[sep-41]: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0041.md
-[`soroban_sdk::token`]: https://docs.rs/soroban-sdk/latest/soroban_sdk/token/
-[`token::tokenclient`]: https://docs.rs/soroban-sdk/latest/soroban_sdk/token/struct.TokenClient.html
-[`token::stellarassetclient`]: https://docs.rs/soroban-sdk/latest/soroban_sdk/token/struct.StellarAssetClient.html
+[stellar asset contract]: /docs/tokens/stellar-asset-contract
+[lumens]: /docs/learn/fundamentals/lumens

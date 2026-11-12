@@ -1,11 +1,11 @@
 ---
 title: Payments and Assets
-description: Send XLM, stellar classic, or a soroban asset using the Stellar CLI
+description: Send XLM and other Stellar assets using the Stellar CLI
 ---
 
 To send payments and work with assets using the Stellar CLI, follow these steps:
 
-1. Set your preferred network. For this guide, we will use `testnet`. A list of available networks can be found [here](/docs/networks)
+1. Set your preferred network. This guide uses `testnet`. See [Networks](/docs/networks) for the list of available networks.
 
 ```bash
 stellar network use testnet
@@ -29,7 +29,7 @@ stellar keys generate bob
 stellar keys fund bob
 ```
 
-3. Obtain the stellar asset contract ID:
+3. Get the contract ID of the native asset's Stellar Asset Contract:
 
 ```bash
 stellar contract id asset --asset native
@@ -51,10 +51,10 @@ stellar keys use alice
 stellar contract invoke --id <ASSET_CONTRACT_ID> -- transfer --to bob --from alice --amount 100
 ```
 
-6. Check account balance:
+6. Check Bob's balance:
 
 ```bash
 stellar contract invoke --id <ASSET_CONTRACT_ID> -- balance --id bob
 ```
 
-For more information on the functions available to the stellar asset contract, see the [token interface code](/docs/tokens/token-interface#code)
+For more information on the functions available on the Stellar Asset Contract, see the [token interface code](/docs/tokens/token-interface#code).

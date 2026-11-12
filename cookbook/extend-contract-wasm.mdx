@@ -1,9 +1,9 @@
 ---
 title: Extend a deployed contract's Wasm code TTL
-description: Use Stellar CLI to extend contract's Wasm bytecode TTL, with or without local binary
+description: Use the Stellar CLI to extend the TTL of a contract's Wasm bytecode, with or without a local binary
 ---
 
-You can use the Stellar CLI to extend the TTL of a contract's Wasm bytecode. This can be done in two forms: if you do or do not have the compiled contract locally. If you do have the compiled binary on your local machine:
+You can use the Stellar CLI to extend the TTL of a contract's Wasm bytecode. You can do this whether or not you have the compiled contract locally. If you have the compiled binary on your local machine:
 
 ```bash
 stellar contract extend \
@@ -14,7 +14,7 @@ stellar contract extend \
     --durability persistent
 ```
 
-This example uses 535,679 ledgers as the new archival TTL. This is the maximum allowable value for this argument on the CLI. This corresponds to roughly 30 days (averaging 5 second ledger close times).
+This example extends the TTL by 535,679 ledgers, roughly 30 days at an average ledger close time of 5 seconds. The network's `max_entry_ttl` setting caps this value, and the CLI returns an error if you ask for more.
 
 If you do not have the compiled binary on your local machine, you can still use the CLI to extend the bytecode TTL. You'll need to know the Wasm hash of the installed contract code:
 
@@ -29,6 +29,6 @@ stellar contract extend \
 
 <Info>
 
-You can learn more about finding the correct Wasm hash for a contract instance [here (JavaScript)](/docs/build/guides/rpc/retrieve-contract-code-js) and [here (Python)](/docs/build/guides/rpc/retrieve-contract-code-python).
+You can learn more about finding the correct Wasm hash for a contract instance in [Retrieve a contract code ledger entry](/docs/build/guides/rpc/retrieve-contract-code).
 
 </Info>
