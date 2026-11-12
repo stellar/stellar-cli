@@ -5,6 +5,7 @@ use soroban_spec_tools::contract as spec_tools;
 use soroban_spec_typescript::boilerplate::Project;
 
 use crate::commands::contract::info::shared as contract_spec;
+use crate::config::network;
 use crate::print::Print;
 use soroban_spec_tools::contract::Spec;
 
@@ -91,22 +92,27 @@ impl Cmd {
             .ok_or_else(|| Error::NotUtf8(file_name.to_os_string()))?;
         soroban_spec_typescript::validate_npm_package_name(contract_name)
             .map_err(|reason| Error::InvalidContractName((*contract_name).to_string(), reason))?;
-        let (resolved_address, network) = match source {
+        let resolved_address = match source {
             contract_spec::Source::Contract {
-                resolved_address,
-                network,
+                resolved_address, ..
             } => {
                 print.infoln(format!("Embedding contract address: {resolved_address}"));
-                (Some(resolved_address), Some(network))
+                Some(resolved_address)
             }
-            contract_spec::Source::Wasm { network, .. } => (None, Some(network)),
-            contract_spec::Source::File { .. } => (None, None),
+            contract_spec::Source::Wasm { .. } | contract_spec::Source::File { .. } => None,
         };
+        // Use local network defaults for the RPC URL and passphrase instead of the
+        // operator's configured network, so a credentialed RPC URL never lands in
+        // the generated package. Only the public contract address is embedded.
+        let (rpc_url, network_passphrase) = network::DEFAULTS
+            .get("local")
+            .map(|(rpc_url, passphrase)| (*rpc_url, *passphrase))
+            .expect("local network default");
         p.init(
             contract_name,
             resolved_address.as_deref(),
-            network.as_ref().map(|n| n.rpc_url.as_ref()),
-            network.as_ref().map(|n| n.network_passphrase.as_ref()),
+            Some(rpc_url),
+            Some(network_passphrase),
             &spec,
         )?;
         print.checkln("Generated!");
