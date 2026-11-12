@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::{self},
-    io::{stdin, Cursor, IsTerminal},
+    io::{Cursor, IsTerminal, Read, stdin},
     path::PathBuf,
     process::{self},
 };
@@ -48,9 +48,8 @@ impl Cmd {
             default_json()
         } else {
             let mut input = String::new();
-            stdin().read_line(&mut input)?;
-            let input = input.trim();
-            xdr_to_json::<stellar_xdr::TransactionEnvelope>(input)?
+            stdin().read_to_string(&mut input)?;
+            xdr_to_json::<stellar_xdr::TransactionEnvelope>(&input)?
         };
 
         let (_temp_dir, path) = tmp_file(&json)?;
@@ -150,7 +149,8 @@ fn xdr_to_json<T>(xdr_string: &str) -> Result<String, Error>
 where
     T: stellar_xdr::ReadXdr + serde::Serialize,
 {
-    let tx = T::from_xdr_base64(xdr_string, stellar_xdr::Limits::depth(XDR_DEPTH_LIMIT))?;
+    let compact_xdr = xdr_string.split_whitespace().collect::<String>();
+    let tx = T::from_xdr_base64(&compact_xdr, stellar_xdr::Limits::depth(XDR_DEPTH_LIMIT))?;
     let mut schema: serde_json::Value = serde_json::to_value(tx)?;
     schema["$schema"] = json!(schema_url());
     let json = serde_json::to_string_pretty(&schema)?;
@@ -204,6 +204,14 @@ fn default_json() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn xdr_to_json_accepts_wrapped_base64() {
+        let xdr = "AAAAAgAAAACYBFySPwzWk0YGRnApY9uHkYcuA63OEUJfPCHS15r6LgAAAGQAS7YyAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAltWKzUF0DSf6FJTJjnjOMD4PvqdD4llwfRAPBJ8Q25AAAAAAAAAAAAAAABAAAAAAAAAAA=";
+        let wrapped = format!("{}\n{}\n{}", &xdr[..76], &xdr[76..152], &xdr[152..]);
+
+        assert!(xdr_to_json::<stellar_xdr::TransactionEnvelope>(&wrapped).is_ok());
+    }
 
     #[test]
     fn tmp_file_uses_private_tempdir() {
