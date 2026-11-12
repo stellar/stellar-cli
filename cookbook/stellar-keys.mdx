@@ -1,11 +1,11 @@
 ---
 title: Stellar Keys
-description: Manage stellar keys
+description: Generate, inspect, fund, and remove Stellar identities using the Stellar CLI
 ---
 
 This guide walks you through generating, inspecting, and removing a Stellar identity using the CLI.
 
-### 1. Generate a New Identity
+## 1. Generate a New Identity
 
 Run the following command to create a new keypair and save it under the alias named `carol`:
 
@@ -15,13 +15,13 @@ stellar keys generate carol
 
 Output:
 
-```
+```text
 ✅ Key saved with alias carol in ".config/soroban/identity/carol.toml"
 ```
 
 The CLI stores this identity in a TOML file.
 
-### 2. Verify the Identity File
+## 2. Verify the Identity File
 
 Navigate to the configuration directory and list the contents:
 
@@ -31,13 +31,13 @@ cd .config/soroban/identity && ls
 
 Output:
 
-```
+```text
 carol.toml
 ```
 
-The file carol.toml contains the seed phrase for your identity.
+The file `carol.toml` contains the seed phrase for your identity.
 
-### 3. View the Seed Phrase
+## 3. View the Seed Phrase
 
 ```bash cookbooktest.ignore=""
 cat carol.toml
@@ -45,19 +45,19 @@ cat carol.toml
 
 Output:
 
-```
+```text
 seed_phrase = "patrol clean public grocery roof aim have valve cherry dismiss lunar tail duty license capable little version banana amount often cover dice couple party"
 ```
 
 <Danger>
 
-Note: The seed phrase is sensitive information. Handle it with care and never expose it publicly.
+The seed phrase is sensitive information. Handle it with care and never expose it publicly.
 
 </Danger>
 
-### 4. Derive the Secret Key
+## 4. Derive the Secret Key
 
-To display the secret key for the carol identity:
+To display the secret key for the `carol` identity:
 
 ```bash
 stellar keys secret carol
@@ -65,19 +65,19 @@ stellar keys secret carol
 
 Output:
 
-```
+```text
 SCJP663VYFZPYN75H2DYJA3FYUBP5UR23HZ4ZDHDMDY6TXVYUYMWNKTI
 ```
 
 <Danger>
 
-Note: The secret key is sensitive information. Handle it with care and never expose it publicly.
+The secret key is sensitive information. Handle it with care and never expose it publicly.
 
 </Danger>
 
-### 5. Derive the Public Key
+## 5. Derive the Public Key
 
-To display the corresponding public key for the carol identity:
+To display the corresponding public key for the `carol` identity:
 
 ```bash
 stellar keys public-key carol
@@ -85,13 +85,13 @@ stellar keys public-key carol
 
 Output:
 
-```
+```text
 GD3BFFX7DTNJAGDVVM5RYGGQQNURZTH4VSBLWF55YXY3L6T2WWZK57EI
 ```
 
 This is the public address of your key.
 
-### 6. Fund this account
+## 6. Fund the Account
 
 ```bash
 stellar keys fund carol
@@ -99,13 +99,13 @@ stellar keys fund carol
 
 Output:
 
-```
+```text
 ✅ Account carol funded on "Test SDF Network ; September 2015"
 ```
 
 You can also fund the account while creating the key by using `stellar keys generate --fund`.
 
-### 7. Remove the Identity
+## 7. Remove the Identity
 
 When you no longer need this identity, remove it using:
 
@@ -115,8 +115,8 @@ stellar keys rm carol --force
 
 Output:
 
-```
+```text
 ℹ️  Removing the key's cli config file
 ```
 
-At this point, the identity file carol.toml is deleted, and the alias is no longer available in the CLI.
+At this point, the identity file `carol.toml` is deleted, and the alias is no longer available in the CLI.

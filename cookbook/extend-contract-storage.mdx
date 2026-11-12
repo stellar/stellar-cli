@@ -15,7 +15,7 @@ stellar contract extend \
     --durability persistent
 ```
 
-This example uses 535,679 ledgers as the new archival TTL. This is the maximum allowable value for this argument on the CLI. This corresponds to roughly 30 days (averaging 5 second ledger close times).
+This example extends the TTL by 535,679 ledgers, roughly 30 days at an average ledger close time of 5 seconds. The network's `max_entry_ttl` setting caps this value, and the CLI returns an error if you ask for more.
 
 If your storage entry uses a more advanced storage key, such as `Balance(Address)` in a token contract, you'll need to provide the key in a base64-encoded XDR form:
 
@@ -31,6 +31,6 @@ stellar contract extend \
 
 <Info>
 
-Be sure to check out our [guide on creating XDR ledger keys](/docs/build/guides/rpc/generate-ledger-keys-python) for help generating them.
+Be sure to check out our [guide on creating XDR ledger keys](/docs/build/guides/rpc/generate-ledger-keys) for help generating them.
 
 </Info>

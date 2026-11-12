@@ -5,25 +5,35 @@ description: Manage the lifecycle of a Stellar smart contract using the CLI
 
 To manage the lifecycle of a Stellar smart contract using the CLI, follow these steps:
 
-1. Set your preferred network. For this guide, we will use `testnet`. A list of available networks can be found [here](/docs/networks)
+<Steps>
+
+<Step title="Set your preferred network">
+
+This guide uses `testnet`. See [Networks](/docs/networks) for the list of available networks.
 
 ```bash
 stellar network use testnet
 ```
 
-2. Create an identity for Alice:
+</Step>
+
+<Step title="Create an identity for Alice">
 
 ```bash
 stellar keys generate alice -q
 ```
 
-3. Fund the identity:
+</Step>
+
+<Step title="Fund the identity">
 
 ```bash
 stellar keys fund alice
 ```
 
-4. Deploy a contract:
+</Step>
+
+<Step title="Deploy a contract">
 
 ```bash
 stellar keys use alice
@@ -33,32 +43,42 @@ stellar keys use alice
 stellar contract deploy --wasm /path/to/contract.wasm --alias mycontract
 ```
 
-This will display the resulting contract ID, e.g.:
+This displays the resulting contract ID, for example:
 
-```
+```text
 CBB65ZLBQBZL5IYHDHEEPCVUUMFOQUZSQKAJFV36R7TZETCLWGFTRLOQ
 ```
 
 To learn more about how to build contract `.wasm` files, take a look at our [getting started tutorial](/docs/build/smart-contracts/getting-started/setup).
 
-5. Invoke a contract function:
+</Step>
+
+<Step title="Invoke a contract function">
 
 ```bash
 stellar contract invoke --id mycontract -- <FUNCTION>
 ```
 
-6. View the contract's state:
+</Step>
+
+<Step title="View the contract's state">
 
 ```bash
 stellar contract read --id mycontract --durability <DURABILITY> --key <KEY>
 ```
 
-Note: `<DURABILITY>` is either `persistent` or `temporary`. `KEY` provides the key of the storage entry being read.
+`<DURABILITY>` is either `persistent` or `temporary`. `<KEY>` is the key of the storage entry being read.
 
-7. Manage expired states:
+</Step>
+
+<Step title="Extend the TTL of the contract's state">
 
 ```bash
 stellar contract extend --id mycontract --ledgers-to-extend 1000 --durability <DURABILITY> --key <KEY>
 ```
 
-This extends the state of the instance provided by the given key to at least 1000 ledgers from the current ledger.
+This extends the TTL of the storage entry with the given key to at least 1,000 ledgers from the current ledger.
+
+</Step>
+
+</Steps>

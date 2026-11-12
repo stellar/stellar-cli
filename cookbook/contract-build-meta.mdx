@@ -1,9 +1,9 @@
 ---
-title: Add meta data to contract WASM on build
-description: Include meta data in the contract WASM byte code on build
+title: Add metadata to contract Wasm on build
+description: Include metadata in the contract Wasm bytecode on build
 ---
 
-To build a smart contract, use the `stellar contract build` command. The `--meta` option will allow you to add additional meta data entries to the `contractmetav0` custom section of the resulting WASM file at build time.
+To build a smart contract, use the `stellar contract build` command. The `--meta` option adds metadata entries to the `contractmetav0` custom section of the resulting Wasm file at build time.
 
 ```bash cookbooktest.ignore=""
 export SHA=$(git rev-parse HEAD)
@@ -16,14 +16,14 @@ stellar contract build \
     --meta commit_sha=$SHA
 ```
 
-You can then use `stellar contract info meta` to see the meta data:
+You can then use `stellar contract info meta` to see the metadata:
 
 ```bash
 stellar contract info meta \
   --wasm target/wasm32v1-none/release/test_hello_world.wasm
 ```
 
-```bash cookbooktest.ignore=""
+```text
 Contract meta:
  • rsver: 1.91.0 (Rust version)
  • rssdkver: 23.0.1#510d3feb724c2b01d7e7ab7652f03b9f8efc3f35 (Soroban SDK version and its commit hash)

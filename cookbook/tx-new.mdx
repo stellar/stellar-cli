@@ -1,13 +1,13 @@
 ---
 title: tx Commands
-description: Create stellar transactions using the Stellar CLI
+description: Build, sign, and send classic Stellar transactions with the Stellar CLI's tx new commands
 ---
 
-So far the examples of the CLI interacting with the blockchain have been through the `contract` command. Uploading contracts, deploying contracts, and invoking them. Each of these are different types of transactions, which must be signed and submitted to the network (and in the case of contract related transactions simulated first).
+So far, the examples of the CLI interacting with the network have used the `contract` command: uploading, deploying, and invoking contracts. Each of these is a different type of transaction, which must be signed and submitted to the network (and, for contract transactions, simulated first).
 
-Technically these three are different operations, of which a transaction can contain up to 100 operations. However, in the case of contract related operations a transaction is limited to just one.
+Technically, these are three different operations. A transaction can contain up to 100 operations, but a transaction with a contract operation can contain only that one.
 
-So for all other transactions the CLI provides the `tx` subcommands. These are:
+For all other transactions, the CLI provides the `tx` subcommands:
 
 - `new`
 - `sign`
@@ -16,20 +16,20 @@ So for all other transactions the CLI provides the `tx` subcommands. These are:
 
 ## `tx new`
 
-For the following examples we will use the following accounts:
+The following examples use these accounts:
 
 ```sh
 stellar keys generate --fund alice --network testnet
 stellar keys generate bob
 # You can add a public key to the keys
 stellar keys add --public-key GBUG7QTBTT47XVDVE6RZYWRUZBPLOIO57INE6LYZDMIXMMDCREQRUQKI charlie
-## and use testnet
+# and use testnet
 stellar network use testnet
 ```
 
 ### Create Account
 
-Creates and funds a new Stellar account. Above `alice` was funded by [friendbot](/docs/networks#friendbot). However, `bob` and `charlie` were not. So we can use the `create-account` command to fund them.
+Creates and funds a new Stellar account. Above, `alice` was funded by [Friendbot](/docs/networks#friendbot), but `bob` and `charlie` were not, so you can use the `create-account` command to fund them.
 
 `bob` will receive 10 XLM and `charlie` will get 1 XLM.
 
@@ -63,7 +63,7 @@ stellar tx new payment \
 
 Notes:
 
-- `--asset`: The asset to send - either "native" for XLM or "CODE:ISSUER" format for other assets
+- `--asset`: The asset to send: either `native` for XLM, or `CODE:ISSUER` for other assets
 
 ### Bump Sequence
 
@@ -89,7 +89,7 @@ stellar tx new account-merge \
 
 Notes:
 
-- `--source`: The account to remove from the ledger, thus this is its final tranaction
+- `--source`: The account to remove from the ledger, so this is its final transaction
 
 ### Set Trustline Flags
 
@@ -122,7 +122,6 @@ Configure account settings:
 ```sh
 stellar tx new set-options \
   --source alice \
-  --inflation-dest GBUG7QTBTT47XVDVE6RZYWRUZBPLOIO57INE6LYZDMIXMMDCREQRUQKI \
   --home-domain "example.com" \
   --master-weight 100 \
   --med-threshold 100 \
@@ -139,7 +138,6 @@ stellar tx new set-options \
 Notes:
 
 - `--source`: Account to modify settings for
-- `--inflation-dest`: Set inflation destination account
 - `--home-domain`: Set home domain for federation/compliance
 - `--master-weight`: Weight of the account's master key (0-255)
 - `--low-threshold`: Weight threshold for low security operations
