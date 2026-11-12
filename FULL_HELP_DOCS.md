@@ -52,6 +52,7 @@ Anything after the `--` double dash (the "slop") is parsed as arguments to the c
 - `config` — Manage CLI configuration
 - `snapshot` — Download a snapshot of a ledger from an archive
 - `token` — Interact with SEP-41 tokens and Stellar Asset Contracts
+- `checkout` — Pay for and fetch an x402-protected resource
 - `tx` — Sign, Simulate, and Send transactions
 - `xdr` — Decode and encode XDR
 - `strkey` — Decode and encode strkey
@@ -2500,6 +2501,52 @@ Calls the token's Stellar Asset Contract `set_authorized` function. A non-SAC co
 - `-s`, `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail
 - `--fee <FEE>` — ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm
 - `--inclusion-fee <INCLUSION_FEE>` — Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided
+
+## `stellar checkout`
+
+Pay for and fetch an x402-protected resource
+
+**Usage:** `stellar checkout [OPTIONS] --source-account <SOURCE_ACCOUNT> <URL>`
+
+###### **Arguments:**
+
+- `<URL>` — The x402-protected resource to fetch and pay for
+
+###### **Global Options:**
+
+- `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+
+###### **Options:**
+
+- `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that pays for the resource. Signs and authorizes the on-chain payment, so it must be an identity or key you control
+- `--max-amount <MAX_AMOUNT>` — Maximum amount to pay, in the asset's display units (e.g. `1` = 1.0 USDC, roughly $1). Aborts before signing if the challenge asks for more. Set to `none` to disable the cap
+
+  Default value: `1`
+
+- `--build-only` — Build and authorization-sign the payment and print the proof, without fetching the paid resource
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable text
+  - `json`: Compact, single-line JSON output
+  - `json-formatted`: Formatted (multiline) JSON output
+
+###### **RPC Options:**
+
+- `--rpc-url <RPC_URL>` — RPC server endpoint
+- `--rpc-header <RPC_HEADERS>` — RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times
+- `--network-passphrase <NETWORK_PASSPHRASE>` — Network passphrase to sign the transaction sent to the rpc server
+- `-n`, `--network <NETWORK>` — Name of network to use from config
+
+###### **Signing Options:**
+
+- `--sign-with-key <SIGN_WITH_KEY>` — Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path
+- `--hd-path <HD_PATH>` — If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+- `--sign-with-lab` — Sign with https://lab.stellar.org
+- `--sign-with-ledger` — Sign with a ledger wallet
+- `--auto-sign` — Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries
 
 ## `stellar tx`
 

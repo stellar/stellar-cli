@@ -1,4 +1,7 @@
-use crate::xdr::{HostFunction, SorobanAuthorizedFunction, SorobanAuthorizedInvocation};
+use crate::xdr::{
+    HostFunction, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+    SorobanAuthorizedInvocation, SorobanCredentials,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -95,6 +98,32 @@ pub fn classify_auth_invocation(
     } else {
         AuthStyle::NonStrict
     }
+}
+
+/// Why a payment's authorization can't be signed as-is: a payment must authorize
+/// exactly the transaction's own call, by a single address, and nothing nested
+/// beneath it. Returns `None` when the authorization is safe to sign.
+#[must_use]
+pub fn payment_authorization_violation(
+    host_fn: &HostFunction,
+    auth: &[SorobanAuthorizationEntry],
+) -> Option<&'static str> {
+    let [entry] = auth else {
+        return Some("it must require exactly one authorization");
+    };
+    if !matches!(
+        entry.credentials,
+        SorobanCredentials::Address(_) | SorobanCredentials::AddressV2(_)
+    ) {
+        return Some("it must be authorized by the paying address");
+    }
+    if classify_auth_invocation(host_fn, &entry.root_invocation) != AuthStyle::Strict {
+        return Some("it authorizes a call other than the transfer");
+    }
+    if !entry.root_invocation.sub_invocations.is_empty() {
+        return Some("it authorizes calls beyond the transfer");
+    }
+    None
 }
 
 #[cfg(test)]
@@ -304,5 +333,65 @@ mod tests {
 
         let style = classify_auth_invocation(&host_fn, &invocation);
         assert_eq!(style, AuthStyle::Strict);
+    }
+
+    fn payment_entry(invocation: SorobanAuthorizedInvocation) -> SorobanAuthorizationEntry {
+        SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(crate::xdr::SorobanAddressCredentials {
+                address: ed25519_address(source_bytes()),
+                nonce: 0,
+                signature_expiration_ledger: 0,
+                signature: ScVal::Void,
+            }),
+            root_invocation: invocation,
+        }
+    }
+
+    #[test]
+    fn payment_authorizing_only_the_transfer_is_accepted() {
+        let contract = [1u8; 32];
+        let host_fn = host_fn_invoke(contract, "transfer", &[ScVal::U32(1)]);
+        let entry = payment_entry(invocation_contract(contract, "transfer", &[ScVal::U32(1)]));
+        assert_eq!(payment_authorization_violation(&host_fn, &[entry]), None);
+    }
+
+    #[test]
+    fn payment_with_nested_calls_is_rejected() {
+        let contract = [1u8; 32];
+        let other = [99u8; 32];
+        let host_fn = host_fn_invoke(contract, "transfer", &[ScVal::U32(1)]);
+        let mut invocation = invocation_contract(contract, "transfer", &[ScVal::U32(1)]);
+        invocation.sub_invocations = [invocation_contract(other, "transfer", &[ScVal::U32(1_000)])]
+            .try_into()
+            .unwrap();
+        assert!(payment_authorization_violation(&host_fn, &[payment_entry(invocation)]).is_some());
+    }
+
+    #[test]
+    fn payment_authorizing_a_different_call_is_rejected() {
+        let contract = [1u8; 32];
+        let host_fn = host_fn_invoke(contract, "transfer", &[ScVal::U32(1)]);
+        let entry = payment_entry(invocation_contract(contract, "transfer", &[ScVal::U32(2)]));
+        assert!(payment_authorization_violation(&host_fn, &[entry]).is_some());
+    }
+
+    #[test]
+    fn payment_needing_several_authorizations_is_rejected() {
+        let contract = [1u8; 32];
+        let host_fn = host_fn_invoke(contract, "transfer", &[ScVal::U32(1)]);
+        let entry = payment_entry(invocation_contract(contract, "transfer", &[ScVal::U32(1)]));
+        assert!(payment_authorization_violation(&host_fn, &[entry.clone(), entry]).is_some());
+        assert!(payment_authorization_violation(&host_fn, &[]).is_some());
+    }
+
+    #[test]
+    fn payment_with_source_account_credentials_is_rejected() {
+        let contract = [1u8; 32];
+        let host_fn = host_fn_invoke(contract, "transfer", &[ScVal::U32(1)]);
+        let entry = SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::SourceAccount,
+            root_invocation: invocation_contract(contract, "transfer", &[ScVal::U32(1)]),
+        };
+        assert!(payment_authorization_violation(&host_fn, &[entry]).is_some());
     }
 }
