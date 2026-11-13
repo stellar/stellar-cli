@@ -27,7 +27,7 @@ use url::Url;
 use crate::utils::XDR_DEPTH_LIMIT;
 use crate::{
     commands::{config::data, global, HEADING_ARCHIVE},
-    config::{self, locator, network::passphrase},
+    config::{self, locator},
     print,
     tx::builder,
     utils::get_name_from_stellar_asset_contract_storage,
@@ -458,18 +458,7 @@ impl Cmd {
             .clone()
             .or_else(|| {
                 self.network.get(&self.locator).ok().and_then(|network| {
-                    match network.network_passphrase.as_str() {
-                        passphrase::MAINNET => {
-                            Some("https://history.stellar.org/prd/core-live/core_live_001")
-                        }
-                        passphrase::TESTNET => {
-                            Some("https://history.stellar.org/prd/core-testnet/core_testnet_001")
-                        }
-                        passphrase::FUTURENET => Some("https://history-futurenet.stellar.org"),
-                        passphrase::LOCAL => Some("http://localhost:8000/archive"),
-                        _ => None,
-                    }
-                    .map(|s| Url::from_str(s).expect("archive url valid"))
+                    config::network::default_archive_url(&network.network_passphrase)
                 })
             })
             .ok_or(Error::ArchiveUrlNotConfigured)
