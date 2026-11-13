@@ -11,6 +11,7 @@ mod init;
 mod integration;
 mod log;
 mod message;
+mod network_metadata_sanitize;
 mod plugin;
 mod rpc_provider;
 mod skill;
