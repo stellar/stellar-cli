@@ -340,8 +340,11 @@ impl Args {
     }
 
     /// Like [`Args::read_key`], but for a `SecureStore` identity loaded from disk
-    /// that lacks a cached public key, derive one via the keychain (one prompt)
-    /// and persist it back so subsequent reads avoid the keychain.
+    /// that lacks a cached public key, derive one via the keychain (one prompt).
+    /// If the derived public key corresponds to the identity's configured derivation
+    /// path (or no explicit override was passed), it is persisted back to disk so
+    /// subsequent reads avoid the keychain. A differing one-off `hd_path` override
+    /// is derived in-memory and returned without mutating the identity on disk.
     pub fn read_key_with_secure_store_cache(
         &self,
         key_or_name: &str,
@@ -369,8 +372,18 @@ impl Args {
                 hd_path: effective,
             });
             // Best-effort write-back: if persistence fails we still return the
-            // freshly-derived value so the current call succeeds.
-            let _ = self.write_key(key_or_name, &migrated);
+            // freshly-derived value so the current call succeeds. Only persist the
+            // cache when deriving for the identity's own default hd_path (normalizing
+            // None and Some(0) as the same path, consistent with the rest of the codebase).
+            // A one-off override with `--hd-path N` must not permanently mutate the identity on disk.
+            if effective.unwrap_or_default() == persisted_hd_path.unwrap_or_default() {
+                let to_persist = Key::Secret(Secret::SecureStore {
+                    entry_name: entry_name.clone(),
+                    public_key: Some(format!("{pk}")),
+                    hd_path: *persisted_hd_path,
+                });
+                let _ = self.write_key(key_or_name, &to_persist);
+            }
             return Ok(migrated);
         }
         Ok(key)
@@ -388,8 +401,10 @@ impl Args {
 
     /// Like [`Args::get_secret_key`], but if the secret is a `SecureStore`
     /// identity loaded from disk without a cached public key, derive it for the
-    /// given `hd_path` and persist the cache. Use from signing paths so the
-    /// returned `Secret` already carries the data signing needs for the hint.
+    /// given `hd_path`. If `hd_path` matches the identity's configured derivation
+    /// path (or none was configured), persist the cache to disk. Use from signing
+    /// paths so the returned `Secret` already carries the data signing needs for
+    /// the hint.
     pub fn get_secret_key_with_hd_path(
         &self,
         key_or_name: &str,
@@ -1590,7 +1605,8 @@ mod tests {
             (dir, args)
         }
 
-        // The legacy-file -> derive-via-keychain -> write-back path is
+        // The legacy-file -> derive-via-keychain -> write-back path (including
+        // preserving unmigrated state on one-off --hd-path overrides) is
         // exercised end-to-end by the soroban-test integration test
         // `secure_store_key_management`. The keyring crate's mock builder
         // assigns each `Entry` instance its own in-memory credential
