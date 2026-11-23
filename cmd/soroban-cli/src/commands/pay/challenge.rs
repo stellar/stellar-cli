@@ -52,6 +52,9 @@ pub enum Error {
     #[error("the payment option amount `{0}` is not a valid integer in the asset's smallest unit")]
     InvalidAmount(String),
 
+    #[error("the payment option amount `{0}` must be greater than zero")]
+    NonPositiveAmount(String),
+
     #[error(
         "the payment option does not sponsor fees (`extra.areFeesSponsored` is not true); \
          the exact scheme requires a fee-sponsoring facilitator"
@@ -73,6 +76,7 @@ impl Error {
             Error::UnsupportedScheme(_) => "unsupported_scheme",
             Error::MissingAmount => "missing_amount",
             Error::InvalidAmount(_) => "invalid_amount",
+            Error::NonPositiveAmount(_) => "non_positive_amount",
             Error::FeesNotSponsored => "fees_not_sponsored",
             Error::Serde(_) => "internal",
         }
@@ -128,8 +132,13 @@ impl Requirements {
             .as_deref()
             .or(self.max_amount_required.as_deref())
             .ok_or(Error::MissingAmount)?;
-        raw.parse::<i128>()
-            .map_err(|_| Error::InvalidAmount(raw.to_string()))
+        let amount = raw
+            .parse::<i128>()
+            .map_err(|_| Error::InvalidAmount(raw.to_string()))?;
+        if amount <= 0 {
+            return Err(Error::NonPositiveAmount(raw.to_string()));
+        }
+        Ok(amount)
     }
 
     /// Whether the facilitator sponsors fees. The exact scheme requires this,
@@ -414,6 +423,20 @@ mod tests {
         let challenge = Challenge::parse(None, &serde_json::to_vec(&value).unwrap()).unwrap();
         let (_, req) = challenge.select_stellar(TESTNET_PASSPHRASE).unwrap();
         assert_eq!(req.amount_raw().unwrap(), 42);
+    }
+
+    #[test]
+    fn non_positive_amounts_are_rejected() {
+        for amount in ["0", "-1"] {
+            let mut value = sample_challenge();
+            value["accepts"][0]["amount"] = json!(amount);
+            let challenge = Challenge::parse(None, &serde_json::to_vec(&value).unwrap()).unwrap();
+            let (_, req) = challenge.select_stellar(TESTNET_PASSPHRASE).unwrap();
+            assert!(
+                matches!(req.amount_raw(), Err(Error::NonPositiveAmount(_))),
+                "expected `{amount}` to be rejected"
+            );
+        }
     }
 
     #[test]
