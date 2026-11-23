@@ -80,7 +80,7 @@ pub struct Args {
 impl Args {
     /// The signer requested through the signing options for authorization
     /// entries, or `None` when no signing option was given.
-    pub fn auth_signer(
+    pub async fn auth_signer(
         &self,
         locator: &locator::Args,
         print: &Print,
@@ -89,10 +89,14 @@ impl Args {
             return Err(Error::LabCannotSignAuthorization);
         }
         if self.sign_with_ledger {
+            // Authorization signing matches entries to signers by public key, so
+            // read it from the device up front.
+            let hd_path = self.hd_path.unwrap_or_default();
+            let public_key = signer::ledger::new(hd_path).await?.public_key().await?;
             return Ok(Some(Signer {
                 kind: SignerKind::Ledger(LedgerEntry {
-                    hd_path: self.hd_path.unwrap_or_default(),
-                    public_key: None,
+                    hd_path,
+                    public_key: Some(public_key),
                 }),
                 print: print.clone(),
             }));
@@ -155,52 +159,62 @@ mod tests {
         )
     }
 
-    #[test]
-    fn auth_signer_is_none_without_signing_options() {
+    #[tokio::test]
+    async fn auth_signer_is_none_without_signing_options() {
         let signer = Args::default()
             .auth_signer(&locator::Args::default(), &Print::new(true))
+            .await
             .unwrap();
         assert!(signer.is_none());
     }
 
-    #[test]
-    fn auth_signer_uses_sign_with_key() {
+    #[tokio::test]
+    async fn auth_signer_uses_sign_with_key() {
         let args = Args {
             sign_with_key: Some(secret_key()),
             ..Default::default()
         };
         let signer = args
             .auth_signer(&locator::Args::default(), &Print::new(true))
+            .await
             .unwrap()
             .unwrap();
         let expected = ed25519_dalek::SigningKey::from_bytes(&[7; 32]).verifying_key();
         assert_eq!(signer.get_public_key().unwrap().0, expected.to_bytes());
     }
 
-    #[test]
-    fn auth_signer_uses_sign_with_ledger() {
+    #[tokio::test]
+    async fn auth_signer_for_ledger_carries_its_public_key() {
         let args = Args {
             sign_with_ledger: true,
             hd_path: Some(3),
             ..Default::default()
         };
-        let signer = args
+        match args
             .auth_signer(&locator::Args::default(), &Print::new(true))
-            .unwrap()
-            .unwrap();
-        assert!(matches!(
-            signer.kind,
-            SignerKind::Ledger(LedgerEntry { hd_path: 3, .. })
-        ));
+            .await
+        {
+            Ok(Some(signer)) => {
+                assert!(matches!(
+                    signer.kind,
+                    SignerKind::Ledger(LedgerEntry { hd_path: 3, .. })
+                ));
+                assert!(signer.get_public_key().is_ok());
+            }
+            Ok(None) => panic!("expected a ledger signer"),
+            Err(_) => {}
+        }
     }
 
-    #[test]
-    fn auth_signer_rejects_sign_with_lab() {
+    #[tokio::test]
+    async fn auth_signer_rejects_sign_with_lab() {
         let args = Args {
             sign_with_lab: true,
             ..Default::default()
         };
-        let result = args.auth_signer(&locator::Args::default(), &Print::new(true));
+        let result = args
+            .auth_signer(&locator::Args::default(), &Print::new(true))
+            .await;
         assert!(matches!(result, Err(Error::LabCannotSignAuthorization)));
     }
 }

@@ -583,6 +583,7 @@ impl Cmd {
         let signers = match config
             .sign_with
             .auth_signer(&config.locator, &print)
+            .await
             .map_err(config::Error::from)?
         {
             Some(signer) => vec![signer],
