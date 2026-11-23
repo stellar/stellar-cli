@@ -244,6 +244,8 @@ impl Challenge {
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Settlement {
     #[serde(default)]
+    pub success: Option<bool>,
+    #[serde(default)]
     pub transaction: Option<String>,
     #[serde(default)]
     pub network: Option<String>,
@@ -264,6 +266,20 @@ impl Settlement {
         serde_json::from_slice(&decoded).map_err(|_| Error::MalformedHeader {
             header: PAYMENT_RESPONSE_HEADER,
         })
+    }
+
+    /// Why settlement failed, when the facilitator reports `success: false`.
+    #[must_use]
+    pub fn failure(&self) -> Option<String> {
+        if self.success != Some(false) {
+            return None;
+        }
+        Some(
+            self.error_message
+                .clone()
+                .or_else(|| self.error_reason.clone())
+                .unwrap_or_else(|| "the facilitator reported a failed settlement".to_string()),
+        )
     }
 }
 
@@ -408,6 +424,24 @@ mod tests {
         );
         let settlement = Settlement::parse(&header).unwrap();
         assert_eq!(settlement.transaction.as_deref(), Some("abc123"));
+    }
+
+    #[test]
+    fn settlement_failure_is_reported() {
+        let failed = json!({ "success": false, "errorReason": "transaction_failed" });
+        let settlement = Settlement::parse(&encode(&failed)).unwrap();
+        assert_eq!(settlement.failure().as_deref(), Some("transaction_failed"));
+
+        let unexplained = Settlement::parse(&encode(&json!({ "success": false }))).unwrap();
+        assert!(unexplained.failure().is_some());
+
+        let settled = json!({ "success": true, "transaction": "abc123" });
+        assert_eq!(
+            Settlement::parse(&encode(&settled)).unwrap().failure(),
+            None
+        );
+        let legacy = json!({ "transaction": "abc123" });
+        assert_eq!(Settlement::parse(&encode(&legacy)).unwrap().failure(), None);
     }
 
     fn encode(value: &Value) -> String {

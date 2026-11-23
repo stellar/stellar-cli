@@ -255,6 +255,12 @@ impl Cmd {
             .header(challenge::PAYMENT_RESPONSE_HEADER)
             .map(|header| Settlement::parse(&header))
             .transpose()?;
+        if let Some(reason) = settlement.as_ref().and_then(Settlement::failure) {
+            return Err(Error::PaymentRejected {
+                status: paid.status,
+                reason,
+            });
+        }
         let tx_hash = settlement.and_then(|s| s.transaction);
         let explorer_url = tx_hash
             .as_deref()
