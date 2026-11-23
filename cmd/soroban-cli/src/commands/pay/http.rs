@@ -17,6 +17,9 @@ pub enum Error {
     Client(reqwest::Error),
 }
 
+/// Most redirects to follow, matching reqwest's default policy.
+const MAX_REDIRECTS: usize = 10;
+
 impl Error {
     /// Machine-readable discriminator for the JSON error envelope's `type` field.
     #[must_use]
@@ -64,7 +67,11 @@ impl Response {
 
 /// `GET url`, optionally attaching the x402 `PAYMENT-SIGNATURE` proof header.
 pub async fn get(url: &str, payment_signature: Option<&str>) -> Result<Response, Error> {
-    let client = reqwest::Client::builder().build().map_err(Error::Client)?;
+    let mut builder = reqwest::Client::builder();
+    if payment_signature.is_some() {
+        builder = builder.redirect(same_origin_redirects());
+    }
+    let client = builder.build().map_err(Error::Client)?;
     let mut request = client.get(url);
     if let Some(signature) = payment_signature {
         request = request.header(PAYMENT_SIGNATURE_HEADER, signature);
@@ -88,4 +95,76 @@ pub async fn get(url: &str, payment_signature: Option<&str>) -> Result<Response,
         headers,
         body,
     })
+}
+
+/// A redirect policy that refuses to leave the original origin, so the payment
+/// proof is never sent to a host other than the one that asked for it.
+fn same_origin_redirects() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        let same_origin = attempt
+            .previous()
+            .first()
+            .is_some_and(|first| first.origin() == attempt.url().origin());
+        if !same_origin {
+            let message = format!("refusing to send the payment to {}", attempt.url());
+            attempt.error(message)
+        } else if attempt.previous().len() > MAX_REDIRECTS {
+            attempt.error("too many redirects")
+        } else {
+            attempt.follow()
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn payment_is_not_sent_to_another_host_on_redirect() {
+        let mut origin = mockito::Server::new_async().await;
+        let mut other = mockito::Server::new_async().await;
+        origin
+            .mock("GET", "/pay")
+            .with_status(302)
+            .with_header("location", &format!("{}/steal", other.url()))
+            .create_async()
+            .await;
+        let stolen = other
+            .mock("GET", "/steal")
+            .with_status(200)
+            .expect(0)
+            .create_async()
+            .await;
+
+        let result = get(&format!("{}/pay", origin.url()), Some("proof")).await;
+
+        stolen.assert_async().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn payment_follows_a_same_host_redirect() {
+        let mut server = mockito::Server::new_async().await;
+        server
+            .mock("GET", "/pay")
+            .with_status(302)
+            .with_header("location", "/paid")
+            .create_async()
+            .await;
+        let paid = server
+            .mock("GET", "/paid")
+            .match_header(PAYMENT_SIGNATURE_HEADER, "proof")
+            .with_status(200)
+            .with_body("ok")
+            .create_async()
+            .await;
+
+        let response = get(&format!("{}/pay", server.url()), Some("proof"))
+            .await
+            .unwrap();
+
+        paid.assert_async().await;
+        assert_eq!(response.body, b"ok");
+    }
 }
