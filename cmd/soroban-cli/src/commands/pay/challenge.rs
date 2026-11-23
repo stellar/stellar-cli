@@ -34,7 +34,9 @@ pub enum Error {
     #[error("the server's {header} header is not valid base64-encoded JSON")]
     MalformedHeader { header: &'static str },
 
-    #[error("the server's 402 response carried no payment declaration")]
+    #[error(
+        "the server's 402 response carried no x402 payment declaration; only x402 is supported"
+    )]
     MissingChallenge,
 
     #[error(
