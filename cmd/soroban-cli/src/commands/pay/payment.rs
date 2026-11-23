@@ -22,6 +22,10 @@ use crate::{
 /// `maxTimeoutSeconds` into an authorization-signature expiration ledger. Matches
 /// the x402 reference client's default when a live estimate isn't available.
 const ESTIMATED_LEDGER_CLOSE_SECONDS: u64 = 5;
+/// Longest the signed payment stays valid, whatever the server asks for. The
+/// facilitator settles right away, so a long-lived payment only gives whoever
+/// holds it time to submit it later.
+const MAX_PAYMENT_TIMEOUT_SECONDS: u64 = 300;
 
 /// Stellar Asset Contract error raised when a transfer would leave a balance
 /// outside its allowed range (e.g. below zero).
@@ -140,6 +144,11 @@ fn classify_transfer_failure(
     }
 }
 
+/// The server's `maxTimeoutSeconds`, capped at [`MAX_PAYMENT_TIMEOUT_SECONDS`].
+fn payment_timeout(max_timeout_seconds: u64) -> u64 {
+    max_timeout_seconds.min(MAX_PAYMENT_TIMEOUT_SECONDS)
+}
+
 /// Number of ledgers to add to the current ledger so the authorization signature
 /// stays valid for at least `max_timeout_seconds`.
 fn expiry_ledgers(max_timeout_seconds: u64) -> u32 {
@@ -248,6 +257,7 @@ pub async fn build_proof(
     quiet: bool,
     no_cache: bool,
 ) -> Result<Value, Error> {
+    let max_timeout_seconds = payment_timeout(max_timeout_seconds);
     let network = config.get_network()?;
     let client = network.rpc_client()?;
     let latest_ledger = client.get_latest_ledger().await?.sequence;
@@ -388,6 +398,16 @@ pub fn parse_asset(asset: &str) -> Result<stellar_strkey::Contract, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn payment_timeout_is_capped() {
+        assert_eq!(payment_timeout(60), 60);
+        assert_eq!(
+            payment_timeout(MAX_PAYMENT_TIMEOUT_SECONDS),
+            MAX_PAYMENT_TIMEOUT_SECONDS
+        );
+        assert_eq!(payment_timeout(u64::MAX), MAX_PAYMENT_TIMEOUT_SECONDS);
+    }
 
     #[test]
     fn expiry_ledgers_rounds_up_from_seconds() {
