@@ -177,7 +177,7 @@ impl TestEnv {
     }
 
     pub fn bin(&self) -> Command {
-        Command::cargo_bin("stellar").unwrap_or_else(|_| Command::new("stellar"))
+        stellar_bin()
     }
 
     pub fn generate_account(&self, account: &str, seed: Option<String>) -> Command {
@@ -375,4 +375,23 @@ impl CommandExt for Command {
     {
         self.arg(OsString::from(j.to_string()))
     }
+}
+
+/// A command running the `stellar` binary built with the tests, or the one on
+/// `PATH` when it can't be found.
+pub fn stellar_bin() -> Command {
+    Command::new(built_stellar_path().unwrap_or_else(|| PathBuf::from("stellar")))
+}
+
+/// Cargo puts test executables in `target/<profile>/deps` or, since 1.100,
+/// in `target/<profile>/build/<pkg>/<hash>/out`, so look for the binary in each
+/// directory above the running test.
+fn built_stellar_path() -> Option<PathBuf> {
+    let name = format!("stellar{}", std::env::consts::EXE_SUFFIX);
+    std::env::current_exe()
+        .ok()?
+        .ancestors()
+        .skip(1)
+        .map(|dir| dir.join(&name))
+        .find(|path| path.is_file())
 }

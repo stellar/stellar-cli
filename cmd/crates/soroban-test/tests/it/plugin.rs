@@ -11,8 +11,7 @@ fn soroban_hello() {
     // Add the target/bin directory to the iterator of paths
     let paths = get_paths();
     // Call soroban with the PATH variable set to include the target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("soroban"))
+    soroban_test::stellar_bin()
         .arg("hello")
         .env("PATH", &paths)
         .assert()
@@ -24,8 +23,7 @@ fn stellar_bye() {
     // Add the target/bin directory to the iterator of paths
     let paths = get_paths();
     // Call soroban with the PATH variable set to include the target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
+    soroban_test::stellar_bin()
         .arg("bye")
         .env("PATH", &paths)
         .assert()
@@ -35,8 +33,7 @@ fn stellar_bye() {
 #[test]
 fn list() {
     // Call `stellar plugin ls` with the PATH variable set to include the target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
+    soroban_test::stellar_bin()
         .arg("plugin")
         .arg("ls")
         .env("PATH", get_paths())
@@ -49,8 +46,7 @@ fn list() {
 #[cfg(not(unix))]
 fn has_no_path() {
     // Call soroban with the PATH variable set to include just target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
+    soroban_test::stellar_bin()
         .arg("hello")
         .env("PATH", target_bin())
         .assert()
@@ -61,8 +57,7 @@ fn has_no_path() {
 #[cfg(not(windows))]
 fn has_no_path_failure() {
     // Call soroban with the PATH variable set to include just target/bin directory
-    assert_cmd::Command::cargo_bin("stellar")
-        .unwrap_or_else(|_| assert_cmd::Command::new("stellar"))
+    soroban_test::stellar_bin()
         .arg("hello")
         .assert()
         .stderr(predicates::str::contains("unrecognized subcommand 'hello'"));
