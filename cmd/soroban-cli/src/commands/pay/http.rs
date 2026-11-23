@@ -1,5 +1,7 @@
 //! Minimal HTTP client for the x402 request/replay loop.
 
+use std::time::Duration;
+
 use reqwest::header::{HeaderMap, CONTENT_TYPE};
 
 use super::challenge::PAYMENT_SIGNATURE_HEADER;
@@ -19,6 +21,11 @@ pub enum Error {
 
 /// Most redirects to follow, matching reqwest's default policy.
 const MAX_REDIRECTS: usize = 10;
+/// How long to wait for the server to accept the connection.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long to wait for more data from the server before giving up. Large
+/// resources still download as long as data keeps arriving.
+const READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 impl Error {
     /// Machine-readable discriminator for the JSON error envelope's `type` field.
@@ -67,7 +74,9 @@ impl Response {
 
 /// `GET url`, optionally attaching the x402 `PAYMENT-SIGNATURE` proof header.
 pub async fn get(url: &str, payment_signature: Option<&str>) -> Result<Response, Error> {
-    let mut builder = reqwest::Client::builder();
+    let mut builder = reqwest::Client::builder()
+        .connect_timeout(CONNECT_TIMEOUT)
+        .read_timeout(READ_TIMEOUT);
     if payment_signature.is_some() {
         builder = builder.redirect(same_origin_redirects());
     }
