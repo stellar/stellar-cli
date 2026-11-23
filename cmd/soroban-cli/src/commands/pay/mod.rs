@@ -17,7 +17,10 @@ use clap::Parser;
 use serde_json::Value;
 
 use crate::{
-    commands::{global, token::args::OutputFormat},
+    commands::{
+        global,
+        token::args::{parse_nonneg_i128, OutputFormat},
+    },
     config::{self, locator, network, sign_with, UnresolvedMuxedAccount},
     output::Output,
 };
@@ -45,8 +48,9 @@ pub struct Cmd {
     pub source_account: UnresolvedMuxedAccount,
 
     /// Maximum amount to pay, in the asset's display units (e.g. `1` = 1.0 USDC,
-    /// roughly $1). Aborts before signing if the challenge asks for more. Set to
-    /// `none` to disable the cap.
+    /// roughly $1, which is `10000000` in base units at 7 decimals). Aborts
+    /// before signing if the challenge asks for more. Set to `none` to disable
+    /// the cap.
     #[arg(
         long,
         env = "STELLAR_CHECKOUT_MAX_AMOUNT",
@@ -54,6 +58,12 @@ pub struct Cmd {
         value_parser = parse_max_amount
     )]
     pub max_amount: MaxAmount,
+
+    /// Maximum amount to pay, in the asset's base units (e.g. `10000000` = 1.0
+    /// USDC at 7 decimals), the same units `stellar token` takes. Aborts before
+    /// signing if the challenge asks for more.
+    #[arg(long, conflicts_with = "max_amount", value_parser = parse_nonneg_i128)]
+    pub raw_max_amount: Option<i128>,
 
     /// Build and authorization-sign the payment and print the proof, without
     /// fetching the paid resource.
@@ -209,7 +219,9 @@ impl Cmd {
         let amount = req.amount_raw()?;
 
         // 3. Enforce the spend cap (default 1.0 of the asset ≈ $1) before signing.
-        if let MaxAmount::Limit(_) = self.max_amount {
+        if let Some(cap) = self.raw_max_amount {
+            cap::enforce_raw(amount, cap)?;
+        } else if let MaxAmount::Limit(_) = self.max_amount {
             let decimals = payment::read_decimals(&config, asset, quiet, no_cache).await?;
             self.max_amount.enforce(amount, decimals)?;
         }
@@ -359,6 +371,7 @@ mod tests {
             url,
             source_account: UnresolvedMuxedAccount::default(),
             max_amount,
+            raw_max_amount: None,
             build_only: false,
             output: OutputFormat::Text,
             network: network::Args {
@@ -507,6 +520,21 @@ mod tests {
             err.to_string().contains(PUBNET_PASSPHRASE),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn raw_max_amount_conflicts_with_max_amount() {
+        let base = ["checkout", "http://localhost/pay", "--source", "alice"];
+        let raw = Cmd::try_parse_from(base.iter().chain(&["--raw-max-amount", "5"])).unwrap();
+        assert_eq!(raw.raw_max_amount, Some(5));
+        assert!(Cmd::try_parse_from(base.iter().chain(&[
+            "--raw-max-amount",
+            "5",
+            "--max-amount",
+            "1"
+        ]))
+        .is_err());
+        assert!(Cmd::try_parse_from(base.iter().chain(&["--raw-max-amount", "-1"])).is_err());
     }
 
     #[tokio::test]

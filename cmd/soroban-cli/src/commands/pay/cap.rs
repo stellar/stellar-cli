@@ -1,9 +1,10 @@
-//! The `--max-amount` spend cap.
+//! The `--max-amount` / `--raw-max-amount` spend caps.
 //!
-//! The cap is denominated in the asset's display units (so `1` means 1.0 of the
-//! asset — roughly $1 for a 7-decimal USD stablecoin like USDC). It defaults to
-//! `1` so an unconfigured `checkout` refuses to pay more than that, and can be
-//! disabled with `none` / `off` / `unlimited`.
+//! `--max-amount` is denominated in the asset's display units (so `1` means 1.0
+//! of the asset — roughly $1 for a 7-decimal USD stablecoin like USDC). It
+//! defaults to `1` so an unconfigured `checkout` refuses to pay more than that,
+//! and can be disabled with `none` / `off` / `unlimited`. `--raw-max-amount` is
+//! the same cap in the asset's base units.
 
 use std::str::FromStr;
 
@@ -23,9 +24,9 @@ pub enum Error {
     Overflow(String),
 
     #[error(
-        "the payment requires {required} but the --max-amount cap is {cap} \
+        "the payment requires {required} but the spend cap is {cap} \
          (asset's smallest unit).\n\
-         Raise it with `--max-amount <AMOUNT>` / `STELLAR_CHECKOUT_MAX_AMOUNT`, \
+         Raise it with `--max-amount <AMOUNT>` / `--raw-max-amount <AMOUNT>`, \
          or disable it with `--max-amount none`."
     )]
     Exceeded { required: i128, cap: i128 },
@@ -82,12 +83,17 @@ impl MaxAmount {
         let MaxAmount::Limit(amount) = self else {
             return Ok(());
         };
-        let cap = decimal_to_raw(amount, decimals)?;
-        if required > cap {
-            return Err(Error::Exceeded { required, cap });
-        }
-        Ok(())
+        enforce_raw(required, decimal_to_raw(amount, decimals)?)
     }
+}
+
+/// Enforce a cap given in the asset's smallest unit against a `required` amount
+/// in the same unit.
+pub fn enforce_raw(required: i128, cap: i128) -> Result<(), Error> {
+    if required > cap {
+        return Err(Error::Exceeded { required, cap });
+    }
+    Ok(())
 }
 
 /// Validate that `s` is a non-negative decimal number (no sign, no exponent),
@@ -211,6 +217,13 @@ mod tests {
         assert!(cap.enforce(10_000_000, 7).is_ok());
         assert!(cap.enforce(9_999_999, 7).is_ok());
         let err = cap.enforce(10_000_001, 7).unwrap_err();
+        assert_eq!(err.error_type(), "max_amount_exceeded");
+    }
+
+    #[test]
+    fn raw_cap_is_compared_in_base_units() {
+        assert!(enforce_raw(10_000_000, 10_000_000).is_ok());
+        let err = enforce_raw(10_000_001, 10_000_000).unwrap_err();
         assert_eq!(err.error_type(), "max_amount_exceeded");
     }
 
