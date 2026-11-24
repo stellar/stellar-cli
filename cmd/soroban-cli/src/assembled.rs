@@ -42,11 +42,31 @@ pub async fn simulate_and_assemble_transaction(
     tracing::trace!("{sim_res:#?}");
 
     if let Some(e) = &sim_res.error {
-        crate::log::event::all(&sim_res.events()?);
-        Err(Error::TransactionSimulationFailed(e.clone()))
+        let events = sim_res.events()?;
+        crate::log::event::all(&events);
+        Err(Error::TransactionSimulationFailed(simulation_error(
+            e, &events,
+        )))
     } else {
         Ok(Assembled::new(tx, sim_res, resource_fee, record_auth)?)
     }
+}
+
+/// Add the messages from the simulation's `error` diagnostic events to the RPC's
+/// error, which since stellar-rpc v30 carries only the host error code. Older
+/// RPCs already include the full event log, so their errors are kept as-is.
+fn simulation_error(error: &str, events: &[xdr::DiagnosticEvent]) -> String {
+    if error.contains("Event log") {
+        return error.to_string();
+    }
+
+    let messages = crate::log::event::error_messages(events);
+
+    if messages.is_empty() {
+        return error.to_string();
+    }
+
+    format!("{error}\n{}", messages.join("\n"))
 }
 
 pub struct Assembled {
@@ -808,5 +828,98 @@ mod tests {
         // 400 (inclusion) + 115 (simulated resource fee), NOT 500 + 115.
         assert_eq!(400 + 115, result.txn.fee);
         assert_eq!(None, result.fee_bump_fee);
+    }
+
+    fn error_event(error: xdr::ScError, data: ScVal) -> xdr::DiagnosticEvent {
+        xdr::DiagnosticEvent {
+            in_successful_contract_call: false,
+            event: xdr::ContractEvent {
+                ext: xdr::ExtensionPoint::V0,
+                contract_id: None,
+                type_: xdr::ContractEventType::Diagnostic,
+                body: xdr::ContractEventBody::V0(xdr::ContractEventV0 {
+                    topics: vec![
+                        ScVal::Symbol(ScSymbol("error".try_into().unwrap())),
+                        ScVal::Error(error),
+                    ]
+                    .try_into()
+                    .unwrap(),
+                    data,
+                }),
+            },
+        }
+    }
+
+    fn string(s: &str) -> ScVal {
+        ScVal::String(xdr::ScString(s.try_into().unwrap()))
+    }
+
+    #[test]
+    fn simulation_error_includes_error_event_messages() {
+        let events = [
+            error_event(
+                xdr::ScError::Storage(xdr::ScErrorCode::ExistingValue),
+                string("contract already exists"),
+            ),
+            error_event(
+                xdr::ScError::Contract(13),
+                ScVal::Vec(Some(
+                    vec![
+                        string("trustline entry is missing for account"),
+                        ScVal::Address(ScAddress::Account(AccountId(
+                            PublicKey::PublicKeyTypeEd25519(Uint256(
+                                Ed25519PublicKey::from_string(SOURCE).unwrap().0,
+                            )),
+                        ))),
+                    ]
+                    .try_into()
+                    .unwrap(),
+                )),
+            ),
+        ];
+
+        assert_eq!(
+            simulation_error("HostError: Error(Storage, ExistingValue)", &events),
+            format!(
+                "HostError: Error(Storage, ExistingValue)\n\
+                 Error(Storage, ExistingValue): contract already exists\n\
+                 Error(Contract, #13): [trustline entry is missing for account, {SOURCE}]"
+            )
+        );
+    }
+
+    #[test]
+    fn simulation_error_escapes_control_bytes_in_messages() {
+        let events = [error_event(
+            xdr::ScError::Auth(xdr::ScErrorCode::InvalidAction),
+            string("boom\x1b[31m"),
+        )];
+
+        let error = simulation_error("HostError: Error(Auth, InvalidAction)", &events);
+
+        assert!(
+            error.ends_with("Error(Auth, InvalidAction): boom\\x1b[31m"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn simulation_error_keeps_errors_that_carry_the_event_log() {
+        let error =
+            "HostError: Error(Storage, ExistingValue)\n\nEvent log (newest first):\n   0: ...";
+        let events = [error_event(
+            xdr::ScError::Storage(xdr::ScErrorCode::ExistingValue),
+            string("contract already exists"),
+        )];
+
+        assert_eq!(simulation_error(error, &events), error);
+    }
+
+    #[test]
+    fn simulation_error_without_error_events_is_unchanged() {
+        assert_eq!(
+            simulation_error("HostError: Error(Budget, ExceededLimit)", &[]),
+            "HostError: Error(Budget, ExceededLimit)"
+        );
     }
 }
