@@ -81,7 +81,7 @@ jobs:
         id: find-wasm
         run: |
           root=$(dirname "$(cargo locate-project --workspace --message-format plain --manifest-path ${{ matrix.dir }}/Cargo.toml)")
-          wasm=$(find "$root/target" -name '*.wasm' -path '*/wasm32v1-none/release/*' -not -path '*/deps/*' | head -1)
+          wasm=$(find "$root/target/wasm32v1-none/release" -maxdepth 1 -name '*.wasm' | head -1)
           echo "wasm=$wasm" | tee -a $GITHUB_OUTPUT
       - name: Set artifact name
         id: artifact-name

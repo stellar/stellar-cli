@@ -1,8 +1,6 @@
 ---
 title: Create Claimable Balance
-hide_table_of_contents: true
 description: Create claimable balances with various claim predicates using the Stellar CLI
-custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/tx-new-create-claimable-balance.mdx
 ---
 
 Claimable balances allow you to send payments that can be claimed by the recipient based on specific conditions. This is useful for escrow-like functionality, conditional payments, or time-locked transfers.
@@ -176,7 +174,7 @@ This means:
 
 Create a claimable balance for a custom asset:
 
-```bash cookbooktest.ignore
+```bash cookbooktest.ignore=""
 stellar tx new create-claimable-balance \
   --source alice \
   --amount 1000_000_000 \

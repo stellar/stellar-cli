@@ -117,11 +117,7 @@ fn should_add_additional_space() -> bool {
     const TERMS: &[&str] = &["Apple_Terminal", "vscode", "unknown"];
     let term_program = env::var("TERM_PROGRAM").unwrap_or("unknown".to_string());
 
-    if TERMS.contains(&term_program.as_str()) {
-        return true;
-    }
-
-    false
+    TERMS.contains(&term_program.as_str())
 }
 
 create_print_functions!(bucket, bucketln, "🪣");

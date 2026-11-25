@@ -1,8 +1,6 @@
 ---
 title: tx sign and tx send
-hide_table_of_contents: true
 description: Create stellar transactions using the Stellar CLI
-custom_edit_url: https://github.com/stellar/stellar-cli/edit/main/cookbook/tx-sign.mdx
 ---
 
 The previous examples of using `tx new` showed how to create transactions. However, these transactions were immediately ready to be signed and submitted to the network.
@@ -48,7 +46,7 @@ AAAAAgAAAAAebE8Ewg9uzvHRAl+UmvP0kixsyp238kkz0zOy+91FeQAAAGQAFJk4AAAAAQAAAAAAAAAA
 
 You can again [view it in lab and see that there is now a signature attached to the transaction envelope](https://lab.stellar.org/xdr/view?$=network$id=testnet&label=Testnet&horizonUrl=https:////horizon-testnet.stellar.org&rpcUrl=https:////soroban-testnet.stellar.org&passphrase=Test%20SDF%20Network%20/;%20September%202015;&xdr$blob=AAAAAgAAAAAebE8Ewg9uzvHRAl+UmvP0kixsyp238kkz0zOy+91FeQAAAGQAFJk4AAAAAQAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAPpiy8qfSw4pLYG//Bav78FfrFWlte7YQfiHX41DQ+nGWAAAAAAX14QAAAAAAAAAAAfvdRXkAAABA4kjz9Yeub//IrzogjMr57U4nYwCmSJAXxIW+7Xyjan//UweIByF7uEhVS4gEl1N138uq07njVxZwRMtugWyMleCg==;;).
 
-:::tip
+<Tip>
 
 Or sign with lab! Though currently you must send it from lab and cannot return to the CLI (a work in progress!).
 
@@ -61,7 +59,7 @@ stellar tx new create-account \
   | stellar tx sign --sign-with-lab
 ```
 
-:::
+</Tip>
 
 ## `tx send`
 

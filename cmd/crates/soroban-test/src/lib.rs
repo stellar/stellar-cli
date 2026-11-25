@@ -177,7 +177,7 @@ impl TestEnv {
     }
 
     pub fn bin(&self) -> Command {
-        Command::cargo_bin("stellar").unwrap_or_else(|_| Command::new("stellar"))
+        stellar_bin()
     }
 
     pub fn generate_account(&self, account: &str, seed: Option<String>) -> Command {
@@ -374,5 +374,62 @@ impl CommandExt for Command {
         A: Display,
     {
         self.arg(OsString::from(j.to_string()))
+    }
+}
+
+/// A command running the `stellar` binary built with the tests, or the one on
+/// `PATH` when it can't be found.
+pub fn stellar_bin() -> Command {
+    Command::new(built_stellar_path().unwrap_or_else(|| PathBuf::from("stellar")))
+}
+
+/// Cargo puts test executables in `target/<profile>/deps` or, since 1.100,
+/// in `target/<profile>/build/<pkg>/<hash>/out`, so look for the binary in each
+/// directory above the running test, stopping at the target dir, which cargo
+/// marks with a `CACHEDIR.TAG` file.
+fn built_stellar_path() -> Option<PathBuf> {
+    find_built_stellar(&std::env::current_exe().ok()?)
+}
+
+fn find_built_stellar(test_exe: &Path) -> Option<PathBuf> {
+    let name = format!("stellar{}", std::env::consts::EXE_SUFFIX);
+    test_exe
+        .ancestors()
+        .skip(1)
+        .take_while(|dir| !dir.join("CACHEDIR.TAG").is_file())
+        .map(|dir| dir.join(&name))
+        .find(|path| path.is_file())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_fs::prelude::*;
+
+    fn stellar() -> String {
+        format!("stellar{}", std::env::consts::EXE_SUFFIX)
+    }
+
+    #[test]
+    fn finds_stellar_in_the_profile_dir() {
+        let root = assert_fs::TempDir::new().unwrap();
+        root.child("target/CACHEDIR.TAG").touch().unwrap();
+        root.child("target/debug").child(stellar()).touch().unwrap();
+        let exe = root.child("target/debug/build/soroban-test/abc/out/it-abc");
+
+        assert_eq!(
+            find_built_stellar(exe.path()),
+            Some(root.child("target/debug").child(stellar()).to_path_buf())
+        );
+    }
+
+    #[test]
+    fn does_not_look_outside_the_target_dir() {
+        let root = assert_fs::TempDir::new().unwrap();
+        root.child("target/CACHEDIR.TAG").touch().unwrap();
+        root.child(stellar()).touch().unwrap();
+        let exe = root.child("target/release/build/soroban-test/abc/out/it-abc");
+
+        assert_eq!(find_built_stellar(exe.path()), None);
     }
 }

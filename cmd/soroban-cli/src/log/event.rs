@@ -169,6 +169,59 @@ pub fn failure(events: &[DiagnosticEvent], print: &Print) {
     }
 }
 
+/// Describe each `error` diagnostic event on one line, such as
+/// `Error(Storage, ExistingValue): contract already exists`.
+pub fn error_messages(events: &[DiagnosticEvent]) -> Vec<String> {
+    events
+        .iter()
+        .filter_map(|event| match &event.event {
+            ContractEvent {
+                body: ContractEventBody::V0(ContractEventV0 { topics, data, .. }),
+                type_: ContractEventType::Diagnostic,
+                ..
+            } if topics.first() == Some(&xdr::ScVal::Symbol(str_to_sc_symbol("error"))) => {
+                let errors = topics[1..]
+                    .iter()
+                    .map(describe_value)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Some(format!("{errors}: {}", describe_value(data)))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn describe_value(value: &xdr::ScVal) -> String {
+    match value {
+        xdr::ScVal::Error(xdr::ScError::Contract(code)) => format!("Error(Contract, #{code})"),
+        xdr::ScVal::Error(
+            error @ (xdr::ScError::WasmVm(code)
+            | xdr::ScError::Context(code)
+            | xdr::ScError::Storage(code)
+            | xdr::ScError::Object(code)
+            | xdr::ScError::Crypto(code)
+            | xdr::ScError::Events(code)
+            | xdr::ScError::Budget(code)
+            | xdr::ScError::Value(code)
+            | xdr::ScError::Auth(code)),
+        ) => format!("Error({}, {})", error.name(), code.name()),
+        xdr::ScVal::String(s) => sanitize(&s.0.to_utf8_string_lossy()),
+        xdr::ScVal::Symbol(s) => sanitize(&s.0.to_utf8_string_lossy()),
+        xdr::ScVal::Address(address) => address.to_string(),
+        xdr::ScVal::Bytes(bytes) => hex::encode(bytes),
+        xdr::ScVal::Vec(Some(items)) => format!(
+            "[{}]",
+            items
+                .iter()
+                .map(describe_value)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        other => serde_json::to_string(other).unwrap_or_default(),
+    }
+}
+
 fn str_to_sc_symbol(s: &str) -> xdr::ScSymbol {
     let inner: xdr::StringM<32> = s.try_into().unwrap();
     xdr::ScSymbol(inner)
