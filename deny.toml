@@ -35,6 +35,10 @@ ignore = [
     "RUSTSEC-2024-0436", # paste is no longer maintained
     "RUSTSEC-2025-0052", # async-std has been discontinued - used only in test dependencies
     "RUSTSEC-2026-0387", # crypto-bigint 0.5 timing issues; no 0.5.x fix, pinned by elliptic-curve 0.13 (soroban-env-host, ows-signer)
+    "RUSTSEC-2026-0440", # astral-tokio-tar is no longer maintained - used only by testcontainers in tests
+    "RUSTSEC-2026-0441", # pin-utils is no longer maintained - pulled in by futures-util
+    "RUSTSEC-2026-0542", # humantime is no longer maintained - no safe upgrade available
+    "RUSTSEC-2026-0543", # chrono is no longer maintained - also pulled in by stellar-rpc-client and ows-signer
 ]
 # Threshold for security vulnerabilities, any vulnerability with a CVSS score
 # lower than the range specified will be ignored. Note that ignored advisories
