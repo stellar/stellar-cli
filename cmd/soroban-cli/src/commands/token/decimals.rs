@@ -111,7 +111,6 @@ impl Cmd {
         // `u32`. It always returns a value on a successful read, so a missing
         // receipt (build-only, which reads never set) decodes as zero.
         let decimals = match receipt {
-            // nosemgrep: rust-serde-security
             Some(r) => serde_json::from_str::<u32>(r.output.trim())?,
             None => 0,
         };

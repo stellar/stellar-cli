@@ -114,7 +114,6 @@ impl Cmd {
         // always returns a value on a successful read, so a missing receipt
         // (build-only, which reads never set) decodes as an empty name.
         let name = match receipt {
-            // nosemgrep: rust-serde-security
             Some(r) => serde_json::from_str::<String>(r.output.trim())?,
             None => String::new(),
         };
