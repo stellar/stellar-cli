@@ -405,7 +405,10 @@ fn render_span_table(rows: &[Vec<(String, usize, bool)>], n_cols: usize) -> Stri
     const PAD: usize = 1;
 
     let widths = span_col_widths(rows, n_cols, PAD);
-    let inner: usize = widths.iter().sum::<usize>() + (n_cols - 1);
+    let inner: usize = widths
+        .iter()
+        .sum::<usize>()
+        .saturating_add(n_cols.saturating_sub(1));
 
     let border = |l: char, r: char| format!("{l}{}{r}\n", "─".repeat(inner));
 
@@ -423,7 +426,10 @@ fn render_span_table(rows: &[Vec<(String, usize, bool)>], n_cols: usize) -> Stri
             out.push('│');
             let mut col = 0;
             for (lines, span, centered) in &cells {
-                let cw: usize = widths[col..col + span].iter().sum::<usize>() + span - 1;
+                let cw: usize = widths[col..col + span]
+                    .iter()
+                    .sum::<usize>()
+                    .saturating_add(span.saturating_sub(1));
                 let text = lines.get(line_i).copied().unwrap_or("");
                 let tw = str_display_width(text);
 
@@ -479,7 +485,10 @@ fn span_col_widths(rows: &[Vec<(String, usize, bool)>], n_cols: usize, pad: usiz
         let mut col = 0;
         for (content, span, _) in row {
             if *span > 1 && col + span <= n_cols {
-                let available: usize = widths[col..col + span].iter().sum::<usize>() + span - 1;
+                let available: usize = widths[col..col + span]
+                    .iter()
+                    .sum::<usize>()
+                    .saturating_add(span.saturating_sub(1));
                 let needed = content.lines().map(str_display_width).max().unwrap_or(0) + 2 * pad;
                 if needed > available {
                     widths[col + span - 1] += needed - available;
@@ -660,6 +669,14 @@ mod test {
         assert_eq!(fee_table.charged, expected_charged_fees);
 
         assert!(fee_table.should_include_resource_fees());
+    }
+
+    #[test]
+    fn render_span_table_zero_cols_and_zero_span() {
+        assert_eq!(render_span_table(&[], 0), "┌┐\n");
+        let rows = vec![vec![(String::new(), 0, false), ("a".to_string(), 1, false)]];
+        // Degenerate input; only checks that it renders without underflowing.
+        assert_eq!(render_span_table(&rows, 1), "┌───┐\n│ │ a │\n└───┘\n");
     }
 
     fn soroban_tx_response() -> Result<GetTransactionResponse, serde_json::Error> {
