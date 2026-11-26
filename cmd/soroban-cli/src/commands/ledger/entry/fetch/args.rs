@@ -88,9 +88,11 @@ mod tests {
     use super::*;
     use crate::config::secret::Secret;
 
+    // nosemgrep: rust-hardcoded-secrets
     const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
     // TEST_SECRET_KEY with its last character changed: a bad checksum that fails to
     // parse as a key yet clears name validation and reaches the config lookup.
+    // nosemgrep: rust-hardcoded-secrets
     const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
     // A seed phrase with an invalid final word: fails to parse and fails name
     // validation on its spaces.

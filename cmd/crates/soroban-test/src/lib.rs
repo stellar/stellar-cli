@@ -380,6 +380,7 @@ impl CommandExt for Command {
 /// A command running the `stellar` binary built with the tests, or the one on
 /// `PATH` when it can't be found.
 pub fn stellar_bin() -> Command {
+    // nosemgrep: rust-path-traversal
     Command::new(built_stellar_path().unwrap_or_else(|| PathBuf::from("stellar")))
 }
 
