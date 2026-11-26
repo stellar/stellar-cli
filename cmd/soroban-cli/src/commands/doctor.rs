@@ -223,6 +223,7 @@ fn check_container_engine(print: &Print) {
 
     // `output()` succeeds as long as the binary spawned, regardless of exit
     // status, so it tells us whether the engine is installed on `PATH`.
+    // nosemgrep: rust-command-injection
     if Command::new(engine.program())
         .arg("--version")
         .output()

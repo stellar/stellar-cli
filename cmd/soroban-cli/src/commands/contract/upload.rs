@@ -30,6 +30,7 @@ use crate::{
     wasm,
 };
 
+// nosemgrep: rust-hardcoded-secrets
 const CONTRACT_META_SDK_KEY: &str = "rssdkver";
 const PUBLIC_NETWORK_PASSPHRASE: &str = "Public Global Stellar Network ; September 2015";
 

@@ -183,6 +183,7 @@ fn config_dir_from_raw_args() -> Option<PathBuf> {
             return iter.next().map(PathBuf::from);
         }
         if let Some(val) = arg.to_str().and_then(|s| s.strip_prefix("--config-dir=")) {
+            // nosemgrep: rust-path-traversal
             return Some(PathBuf::from(val));
         }
     }

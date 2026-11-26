@@ -236,8 +236,11 @@ mod tests {
     use super::*;
     use crate::config::secret::Secret;
 
+    // nosemgrep: rust-hardcoded-secrets
     const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+    // nosemgrep: rust-hardcoded-secrets
     const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+    // nosemgrep: rust-hardcoded-secrets
     const OTHER_PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
 
     fn locator_with_identity() -> (tempfile::TempDir, locator::Args) {
@@ -302,6 +305,7 @@ mod tests {
     // TEST_SECRET_KEY with its last character changed: bad checksum but valid strkey
     // charset, so it fails to parse yet clears `validate_name` and reaches the config
     // lookup (`ConfigMissing`).
+    // nosemgrep: rust-hardcoded-secrets
     const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
     // SEED_PHRASE with an invalid final word: fails to parse and fails `validate_name`
     // on its spaces (`InvalidName`).

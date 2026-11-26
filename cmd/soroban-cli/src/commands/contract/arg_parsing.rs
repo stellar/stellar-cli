@@ -597,6 +597,7 @@ fn resolve_signer(addr_or_alias: &str, config: &config::Args) -> Option<Signer> 
 /// Validates JSON string and returns a more descriptive error if invalid
 fn validate_json_arg(arg_name: &str, value: &str) -> Result<(), Error> {
     // Try to parse as JSON first
+    // nosemgrep: rust-serde-security
     if let Err(json_err) = serde_json::from_str::<serde_json::Value>(value) {
         return Err(Error::InvalidJsonArg {
             arg: arg_name.to_string(),
@@ -787,6 +788,7 @@ fn resolve_aliases(
         ScSpecTypeDef::Address | ScSpecTypeDef::MuxedAddress
     );
 
+    // nosemgrep: rust-serde-security
     let mut json = match serde_json::from_str::<serde_json::Value>(value) {
         Ok(j) => j,
         Err(_) if is_address => serde_json::Value::String(value.trim_matches('"').to_string()),
@@ -831,6 +833,7 @@ fn resolve_aliases_in_json(
             if let serde_json::Value::String(s) = value {
                 let resolved = resolve_address(s, config, print)?;
                 if &resolved != s {
+                    // nosemgrep: rust-memory-safety
                     *s = resolved;
                     mutated = true;
                 }

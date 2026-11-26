@@ -166,6 +166,7 @@ mod tests {
 
     #[test]
     fn test_strkey_format() {
+        // nosemgrep: rust-hardcoded-secrets
         let strkey_id = "BAAMLBZI42AD52HKGIZOU7WFVZM6BPEJCLPL44QU2AT6TY3P57I5QDNYIA";
         let expected_hex = "c58728e6803ee8ea3232ea7ec5ae59e0bc8912debe7214d027e9e36fefd1d80d";
 

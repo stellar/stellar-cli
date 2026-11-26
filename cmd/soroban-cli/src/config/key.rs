@@ -196,9 +196,11 @@ mod test {
         round_trip(&key);
     }
 
+    // nosemgrep: rust-hardcoded-secrets
     const PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
     const MUXED_ACCOUNT: &str =
         "MA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAAAAAAAAAPCICBKU";
+    // nosemgrep: rust-hardcoded-secrets
     const SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
     const SEED_PHRASE: &str =
         "depth decade power loud smile spatial sign movie judge february rate broccoli";

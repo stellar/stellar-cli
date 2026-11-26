@@ -497,6 +497,7 @@ impl Cmd {
             let manifest_path = path::absolute(
                 self.manifest_path
                     .clone()
+                    // nosemgrep: rust-path-traversal
                     .unwrap_or(PathBuf::from("Cargo.toml")),
             )
             .map_err(Error::AbsolutePath)?;

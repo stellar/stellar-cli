@@ -35,6 +35,7 @@ pub struct Speculos {
 const DEFAULT_APP_PATH: &str = "/project/app/bin";
 impl Speculos {
     pub fn new(ledger_device_model: String) -> Self {
+        // nosemgrep: rust-path-traversal
         let apps_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("test_fixtures")

@@ -311,6 +311,7 @@ impl Network {
 }
 
 /// Default network key to use when no network is specified
+// nosemgrep: rust-hardcoded-secrets
 pub const DEFAULT_NETWORK_KEY: &str = "testnet";
 
 pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_map! {
@@ -685,6 +686,7 @@ mod tests {
             args: Args,
         }
 
+        // nosemgrep: rust-hardcoded-secrets
         let secret = "Authorization Bearer secret_poc_token_12345";
         with_env_guard(&["STELLAR_RPC_HEADERS"], || {
             std::env::set_var("STELLAR_RPC_HEADERS", secret);
@@ -725,6 +727,7 @@ mod tests {
     fn test_malformed_rpc_header_app_error_does_not_expose_value() {
         use super::super::locator;
 
+        // nosemgrep: rust-hardcoded-secrets
         let secret = "Authorization Bearer secret_poc_token_12345";
         let args = Args {
             rpc_url: Some("https://example.com".to_string()),

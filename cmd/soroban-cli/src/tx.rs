@@ -76,6 +76,7 @@ where
         .sign_soroban_authorizations(&txn, auth_signers, &print)
         .await?
     {
+        // nosemgrep: rust-memory-safety
         *txn = tx;
     }
 

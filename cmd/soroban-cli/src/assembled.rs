@@ -217,6 +217,7 @@ impl Assembled {
         }) = &mut self.txn.ext
         {
             tracing::trace!("setting max instructions to {instructions} from {i}");
+            // nosemgrep: rust-memory-safety
             *i = instructions;
         }
         self

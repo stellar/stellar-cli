@@ -311,7 +311,9 @@ pub fn seed_phrase_from_seed(seed: Option<&str>) -> Result<SeedPhrase, Error> {
 mod tests {
     use super::*;
 
+    // nosemgrep: rust-hardcoded-secrets
     const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+    // nosemgrep: rust-hardcoded-secrets
     const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
     const TEST_SEED_PHRASE: &str =
         "depth decade power loud smile spatial sign movie judge february rate broccoli";

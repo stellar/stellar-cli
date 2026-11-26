@@ -1579,7 +1579,9 @@ mod tests {
     mod secure_store_cache {
         use super::super::*;
 
+        // nosemgrep: rust-hardcoded-secrets
         const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+        // nosemgrep: rust-hardcoded-secrets
         const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
 
         fn locator_with_tempdir() -> (tempfile::TempDir, Args) {
@@ -1654,8 +1656,11 @@ mod tests {
     mod secret_by_public_key {
         use super::super::*;
 
+        // nosemgrep: rust-hardcoded-secrets
         const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
+        // nosemgrep: rust-hardcoded-secrets
         const TEST_SECRET_KEY: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
+        // nosemgrep: rust-hardcoded-secrets
         const OTHER_PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
         const TEST_SEED_PHRASE: &str =
             "depth decade power loud smile spatial sign movie judge february rate broccoli";

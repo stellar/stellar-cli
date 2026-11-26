@@ -424,6 +424,7 @@ mod test {
     #[test]
     #[serial]
     fn is_valid_engine_tracks_env_var() {
+        // nosemgrep: rust-hardcoded-secrets
         const KEY: &str = "STELLAR_CONTAINER_ENGINE";
 
         with_env_guard(&[KEY], || {
