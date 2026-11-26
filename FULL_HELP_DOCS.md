@@ -266,6 +266,18 @@ List all aliases
 
 - `--config-dir <CONFIG_DIR>` — Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
 
+###### **Options:**
+
+- `--network <NETWORK>` — Name of the configured network to list
+- `--output <OUTPUT>` — Format of the output
+
+  Default value: `text`
+
+  Possible values:
+  - `text`: Human-readable alias listing
+  - `json`: Compact JSON grouped by network passphrase
+  - `json-formatted`: Indented JSON grouped by network passphrase
+
 ## `stellar contract bindings`
 
 Generate code client bindings for a contract

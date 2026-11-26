@@ -1122,6 +1122,55 @@ fn alias_ls_always_shows_builtin_native() {
 }
 
 #[test]
+fn alias_ls_json_is_sorted_and_can_filter_by_network() {
+    TestEnv::with_default(|sandbox| {
+        let contract = "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE";
+        for alias in ["z-token", "a-token"] {
+            sandbox
+                .new_assert_cmd("contract")
+                .args(["alias", "add", alias, "--id", contract])
+                .assert()
+                .success();
+        }
+        let list = |args: &[&str]| {
+            sandbox
+                .new_assert_cmd("contract")
+                .args(["alias", "ls", "--output", "json"])
+                .args(args)
+                .assert()
+                .success()
+                .stdout_as_str()
+        };
+
+        let all = list(&[]);
+        assert_eq!(all, list(&[]));
+        let all: serde_json::Value = serde_json::from_str(&all).unwrap();
+        let filtered = list(&["--network", "local"]);
+        let filtered: serde_json::Value = serde_json::from_str(&filtered).unwrap();
+        assert!(all.get(MAINNET).is_some());
+        assert_eq!(
+            filtered,
+            serde_json::json!({ (LOCAL_NETWORK_PASSPHRASE): all[LOCAL_NETWORK_PASSPHRASE] })
+        );
+
+        let aliases = filtered[LOCAL_NETWORK_PASSPHRASE].as_array().unwrap();
+        assert_eq!(aliases.len(), 3);
+        assert_eq!(
+            aliases[0],
+            serde_json::json!({
+                "alias": "a-token",
+                "contract": contract,
+                "builtin": false,
+                "disabled": false
+            })
+        );
+        assert_eq!(aliases[1]["alias"], "native");
+        assert_eq!(aliases[1]["builtin"], true);
+        assert_eq!(aliases[2]["alias"], "z-token");
+    });
+}
+
+#[test]
 fn alias_ls_marks_preexisting_native_alias_disabled() {
     TestEnv::with_default(|sandbox| {
         // Simulate a `native` alias created before it became a reserved
