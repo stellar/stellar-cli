@@ -495,10 +495,8 @@ fn default_account_entry() -> AccountEntry {
         num_sub_entries: 0,
         inflation_dest: None,
         flags: 0,
-        // nosemgrep: rust-unsafe-usage
         home_domain: String32::from(unsafe { StringM::<32>::from_str("TEST").unwrap_unchecked() }),
         thresholds: Thresholds([0; 4]),
-        // nosemgrep: rust-unsafe-usage
         signers: unsafe { [].try_into().unwrap_unchecked() },
         ext: AccountEntryExt::V0,
     }

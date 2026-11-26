@@ -76,7 +76,6 @@ struct Runner {
 
 impl Runner {
     fn run(&self) -> Result<(), Error> {
-        // nosemgrep: rust-path-traversal
         let project_path = PathBuf::from(&self.args.project_path);
         self.print
             .infoln(format!("Initializing workspace at {project_path:?}"));

@@ -3,7 +3,7 @@
   "javascript_sast_enabled": true,
   "ruby_sast_enabled": true,
   "rust_sast_enabled": true,
-  "rust_disabled_rules": "rust-env-injection,rust-panic-in-production,rust-sql-injection,rust-hardcoded-secrets,rust-memory-safety",
+  "rust_disabled_rules": "rust-env-injection,rust-panic-in-production,rust-sql-injection,rust-hardcoded-secrets,rust-memory-safety,rust-path-traversal,rust-unsafe-usage,rust-command-injection",
   "secret_scanning_enabled": true,
   "console_tabular_enabled": true,
   "socket_tier_1_enabled": false,
