@@ -65,10 +65,8 @@ impl Spec {
 
                 if let Some(existing_data) = out {
                     let combined_data = [existing_data, section.data()].concat();
-                    // nosemgrep: rust-memory-safety
                     *out = Some(combined_data);
                 } else {
-                    // nosemgrep: rust-memory-safety
                     *out = Some(section.data().to_vec());
                 }
             }

@@ -833,7 +833,6 @@ fn resolve_aliases_in_json(
             if let serde_json::Value::String(s) = value {
                 let resolved = resolve_address(s, config, print)?;
                 if &resolved != s {
-                    // nosemgrep: rust-memory-safety
                     *s = resolved;
                     mutated = true;
                 }

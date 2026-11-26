@@ -238,6 +238,7 @@ mod test {
         }
         let temp_dir = TempDir::new().unwrap();
         let _: Project = init(temp_dir.path()).unwrap();
+        // nosemgrep: rust-path-traversal
         let fixture = PathBuf::from("./fixtures/test_custom_types");
         assert_dirs_equal(temp_dir.path(), &fixture);
     }
@@ -245,6 +246,7 @@ mod test {
     #[ignore = "regenerates the ts snapshot fixtures; run manually"]
     #[test]
     fn build_package() {
+        // nosemgrep: rust-path-traversal
         let root = PathBuf::from("./fixtures/ts");
         std::fs::remove_dir_all(&root).unwrap_or_default();
         std::fs::create_dir_all(&root).unwrap();

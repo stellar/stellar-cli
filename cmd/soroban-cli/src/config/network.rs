@@ -311,7 +311,6 @@ impl Network {
 }
 
 /// Default network key to use when no network is specified
-// nosemgrep: rust-hardcoded-secrets
 pub const DEFAULT_NETWORK_KEY: &str = "testnet";
 
 pub static DEFAULTS: phf::Map<&'static str, (&'static str, &'static str)> = phf_map! {
