@@ -42,7 +42,7 @@ impl Cmd {
             Cmd::Rm(rm) => rm.run(global_args)?,
             Cmd::Add(add) => add.run(global_args)?,
             Cmd::Show(show) => show.run(global_args)?,
-            Cmd::Ls(ls) => ls.run()?,
+            Cmd::Ls(ls) => ls.run(global_args)?,
         }
         Ok(())
     }

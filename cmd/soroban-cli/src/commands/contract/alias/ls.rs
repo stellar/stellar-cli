@@ -1,19 +1,50 @@
-use clap::Parser;
-use std::collections::HashMap;
+use clap::{Parser, ValueEnum};
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fs;
 use std::path::Path;
 
 use crate::commands::config::network;
+use crate::commands::global;
 use crate::config::locator::{print_deprecation_warning, Location};
 use crate::config::{alias, locator};
+use crate::output::{Format, Output};
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum OutputFormat {
+    /// Human-readable alias listing
+    Text,
+    /// Compact JSON grouped by network passphrase
+    Json,
+    /// Indented JSON grouped by network passphrase
+    JsonFormatted,
+}
+
+impl From<OutputFormat> for Format {
+    fn from(format: OutputFormat) -> Self {
+        match format {
+            OutputFormat::Text => Self::Readable,
+            OutputFormat::Json => Self::Json,
+            OutputFormat::JsonFormatted => Self::JsonFormatted,
+        }
+    }
+}
 
 #[derive(Parser, Debug, Clone)]
 #[group(skip)]
 pub struct Cmd {
     #[command(flatten)]
     pub config_locator: locator::Args,
+
+    /// Name of the configured network to list
+    #[arg(long)]
+    network: Option<String>,
+
+    /// Format of the output
+    #[arg(long, value_enum, default_value = "text")]
+    output: OutputFormat,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -26,18 +57,23 @@ pub enum Error {
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 struct AliasEntry {
     alias: String,
     contract: String,
     builtin: bool,
+    disabled: bool,
 }
 
 impl Cmd {
-    pub fn run(&self) -> Result<(), Error> {
+    pub fn run(&self, global_args: &global::Args) -> Result<(), Error> {
         let config_dirs = self.config_locator.local_and_global()?;
+        let output = Output::new(self.output.into(), global_args.quiet);
 
         for cfg in config_dirs {
             match cfg {
@@ -46,16 +82,16 @@ impl Cmd {
                         print_deprecation_warning(&config_dir);
                     }
                 }
-                Location::Global(config_dir) => self.read_from_config_dir(&config_dir)?,
+                Location::Global(config_dir) => self.read_from_config_dir(&config_dir, &output)?,
             }
         }
 
         Ok(())
     }
 
-    fn collect_aliases(config_dir: &Path) -> Result<HashMap<String, Vec<AliasEntry>>, Error> {
+    fn collect_aliases(config_dir: &Path) -> Result<BTreeMap<String, Vec<AliasEntry>>, Error> {
         let contract_ids_dir = config_dir.join("contract-ids");
-        let mut map: HashMap<String, Vec<AliasEntry>> = HashMap::new();
+        let mut map: BTreeMap<String, Vec<AliasEntry>> = BTreeMap::new();
 
         if !contract_ids_dir.is_dir() {
             return Ok(map);
@@ -78,6 +114,7 @@ impl Cmd {
                         alias: alias.clone(),
                         contract: contract_id.clone(),
                         builtin: false,
+                        disabled: alias::is_reserved(&alias),
                     };
 
                     map.entry(network_passphrase.clone())
@@ -90,14 +127,18 @@ impl Cmd {
         Ok(map)
     }
 
-    fn read_from_config_dir(&self, config_dir: &Path) -> Result<(), Error> {
+    fn read_from_config_dir(&self, config_dir: &Path, output: &Output) -> Result<(), Error> {
         let mut map = Self::collect_aliases(config_dir)?;
 
-        // The built-in `native` alias resolves to the native asset contract for
-        // a network, so make sure every known network is listed even when it has
-        // no stored aliases of its own.
-        for (_, network, _) in self.config_locator.list_networks_long()? {
-            map.entry(network.network_passphrase).or_default();
+        if let Some(name) = &self.network {
+            let passphrase = self.config_locator.read_network(name)?.network_passphrase;
+            map.retain(|network, _| *network == passphrase);
+            map.entry(passphrase).or_default();
+        } else {
+            // Include known networks even when they only have the built-in native alias.
+            for (_, network, _) in self.config_locator.list_networks_long()? {
+                map.entry(network.network_passphrase).or_default();
+            }
         }
 
         for (network_passphrase, list) in &mut map {
@@ -108,28 +149,31 @@ impl Cmd {
                     alias: alias::NATIVE.to_string(),
                     contract: format!("{contract}"),
                     builtin: true,
+                    disabled: false,
                 });
             }
 
-            println!("ℹ️ Aliases available for network '{network_passphrase}'");
-
             list.sort_by(|a, b| a.alias.cmp(&b.alias));
-
-            for entry in list.iter() {
-                let note = if entry.builtin {
-                    " (built-in)"
-                } else if alias::is_reserved(&entry.alias) {
-                    // A user alias whose name is now reserved is shadowed by the
-                    // built-in alias of the same name, so it no longer resolves.
-                    " (disabled)"
-                } else {
-                    ""
-                };
-                println!("{}: {}{note}", entry.alias, entry.contract);
-            }
-
-            println!();
         }
+
+        output.readable(|_| {
+            for (network_passphrase, list) in &map {
+                println!("ℹ️ Aliases available for network '{network_passphrase}'");
+                for entry in list {
+                    let note = if entry.builtin {
+                        " (built-in)"
+                    } else if entry.disabled {
+                        " (disabled)"
+                    } else {
+                        ""
+                    };
+                    println!("{}: {}{note}", entry.alias, entry.contract);
+                }
+
+                println!();
+            }
+        });
+        output.json_value(&map)?;
 
         Ok(())
     }
