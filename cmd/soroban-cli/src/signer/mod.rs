@@ -824,7 +824,6 @@ mod tests {
 
     #[test]
     fn ledger_signer_get_public_key_returns_cached_without_device() {
-        // nosemgrep: rust-hardcoded-secrets
         const TEST_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
         let pk = stellar_strkey::ed25519::PublicKey::from_string(TEST_PUBLIC_KEY).unwrap();
         let signer = Signer {

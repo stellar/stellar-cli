@@ -182,7 +182,6 @@ mod tests {
         // file makes `get_contract_id` return `CannotParseContractId(alias, ..)`,
         // whose message interpolates the raw alias. Resolution must collapse that
         // to the concealing not-found error rather than propagate (and echo) it.
-        // nosemgrep: rust-hardcoded-secrets
         let secret = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
         let dir = tempfile::tempdir().unwrap();
         let locator = locator::Args {

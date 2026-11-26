@@ -378,7 +378,6 @@ mod tests {
 
     // A valid strkey charset with a bad checksum: fails to parse as an address
     // yet is shaped like a secret key, so it falls through to the not-found arm.
-    // nosemgrep: rust-hardcoded-secrets
     const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
     // A seed phrase with an invalid final word: fails to derive a key, so it too
     // falls through rather than resolving to an account.

@@ -146,7 +146,6 @@ mod tests {
     use crate::{config::secret::Secret, utils::into_signing_key};
 
     // Public key = GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L
-    // nosemgrep: rust-hardcoded-secrets
     const TEST_SECRET_KEY: &str = "SAKICEVQLYWGSOJS4WW7HZJWAHZVEEBS527LHK5V4MLJALYKICQCJXMW";
 
     fn setup_locator() -> locator::Args {
@@ -247,7 +246,6 @@ mod tests {
     #[test]
     fn test_help_does_not_expose_sign_with_key() {
         use clap::CommandFactory;
-        // nosemgrep: rust-hardcoded-secrets
         let secret = "SDIY6AQQ75WMD4W46EYB7O6UYMHOCGQHLAQGQTKHDX4J2DYQCHVCQYFD";
         std::env::set_var("STELLAR_SIGN_WITH_KEY", secret);
         let mut cmd = Cmd::command();

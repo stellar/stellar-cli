@@ -290,7 +290,6 @@ pub mod url {
 
         #[test]
         fn replaces_password_with_placeholder() {
-            // nosemgrep: rust-hardcoded-secrets
             let with_password = "https://alice:supersecret@rpc.example.com/soroban";
             let redacted = redact_url(with_password);
             assert!(

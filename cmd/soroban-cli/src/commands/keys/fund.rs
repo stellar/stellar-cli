@@ -39,7 +39,6 @@ mod tests {
     use super::*;
     use clap::Parser;
 
-    // nosemgrep: rust-hardcoded-secrets
     const PUBLIC_KEY: &str = "GAKSH6AD2IPJQELTHIOWDAPYX74YELUOWJLI2L4RIPIPZH6YQIFNUSDC";
 
     #[test]

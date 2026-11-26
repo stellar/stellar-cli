@@ -164,9 +164,7 @@ mod tests {
     use super::*;
 
     // Public key = GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L
-    // nosemgrep: rust-hardcoded-secrets
     const TEST_PUBLIC_KEY: &str = "GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L";
-    // nosemgrep: rust-hardcoded-secrets
     const FALSE_PUBLIC_KEY: &str = "GAREAZZQWHOCBJS236KIE3AWYBVFLSBK7E5UW3ICI3TCRWQKT5LNLCEZ";
     const FALSE_SIGNATURE: &str =
         "+F//cUINZgTe4vZNXOEJTchDgEYlvy+iGFH3P65KeVhoyZgAsmGRRYAQLVqgY9J3PAlHPbSSeU5advhswmAfDg==";
@@ -287,7 +285,6 @@ mod tests {
         // A secret key with its last character changed: a bad checksum that fails
         // to parse as a key yet clears name validation and reaches the config
         // lookup, which must not echo it back.
-        // nosemgrep: rust-hardcoded-secrets
         const MISTYPED_SECRET: &str = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BX";
 
         let locator = setup_locator();
@@ -310,12 +307,10 @@ mod tests {
     fn test_verify_rejects_small_order_public_keys() {
         // Small-order ed25519 public keys have no secret key. A signature (R, s = 0) with R a
         // small-order point passes non-strict verification without any key material.
-        // nosemgrep: rust-hardcoded-secrets
         const IDENTITY_PUBLIC_KEY: &str =
             "GAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHV4";
         const IDENTITY_FORGED_SIGNATURE: &str =
             "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
-        // nosemgrep: rust-hardcoded-secrets
         const ZERO_PUBLIC_KEY: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
         const ZERO_FORGED_SIGNATURE: &str =
             "7P///////////////////////////////////////38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
@@ -342,7 +337,6 @@ mod tests {
 
     #[test]
     fn test_verify_rejects_raw_secret_key_as_public_key() {
-        // nosemgrep: rust-hardcoded-secrets
         let secret_key = "SBF5HLRREHMS36XZNTUSKZ6FTXDZGNXOHF4EXKUL5UCWZLPBX3NGJ4BH";
         let cmd = super::Cmd {
             message: Some("Hello, World!".to_string()),

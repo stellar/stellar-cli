@@ -1,7 +1,8 @@
 # Socket Basics security scan for stellar-cli.
 # Upstream: https://github.com/SocketDev/socket-basics
 # Scanner settings live in .socket-basics.json; SAST path exclusions live in
-# .semgrepignore.
+# .semgrepignore. Rust SAST rules live in .socket-basics-rules/rust.yml, a copy
+# of the image's rules that skips test modules, to re-copy when bumping the image.
 #
 # This workflow does SAST through OpenGrep and secret scanning through
 # TruffleHog, and submits results to Socket.dev

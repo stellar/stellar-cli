@@ -4,6 +4,8 @@
   "ruby_sast_enabled": true,
   "rust_sast_enabled": true,
   "rust_disabled_rules": "rust-env-injection,rust-panic-in-production,rust-sql-injection",
+  "use_custom_sast_rules": true,
+  "custom_sast_rule_path": ".socket-basics-rules",
   "secret_scanning_enabled": true,
   "console_tabular_enabled": true,
   "socket_tier_1_enabled": false,

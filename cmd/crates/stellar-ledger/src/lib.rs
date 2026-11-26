@@ -376,7 +376,6 @@ mod test {
         let ledger = ledger(&server);
         let public_key = ledger.get_public_key(&0u32.into()).await.unwrap();
         let public_key_string = public_key.to_string();
-        // nosemgrep: rust-hardcoded-secrets
         let expected_public_key = "GDUTHCF37UX32EMANXIL2WOOVEDZ47GHBTT3DYKU6EKM37SOIZXM2FN7";
         assert_eq!(public_key_string, expected_public_key);
 
