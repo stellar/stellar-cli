@@ -405,8 +405,7 @@ fn render_span_table(rows: &[Vec<(String, usize, bool)>], n_cols: usize) -> Stri
     const PAD: usize = 1;
 
     let widths = span_col_widths(rows, n_cols, PAD);
-    // nosemgrep: rust-integer-overflow
-    let inner: usize = widths.iter().sum::<usize>() + (n_cols - 1);
+    let inner = spanned_width(&widths);
 
     let border = |l: char, r: char| format!("{l}{}{r}\n", "─".repeat(inner));
 
@@ -424,8 +423,7 @@ fn render_span_table(rows: &[Vec<(String, usize, bool)>], n_cols: usize) -> Stri
             out.push('│');
             let mut col = 0;
             for (lines, span, centered) in &cells {
-                // nosemgrep: rust-integer-overflow
-                let cw: usize = widths[col..col + span].iter().sum::<usize>() + span - 1;
+                let cw = spanned_width(&widths[col..col + span]);
                 let text = lines.get(line_i).copied().unwrap_or("");
                 let tw = str_display_width(text);
 
@@ -481,8 +479,7 @@ fn span_col_widths(rows: &[Vec<(String, usize, bool)>], n_cols: usize, pad: usiz
         let mut col = 0;
         for (content, span, _) in row {
             if *span > 1 && col + span <= n_cols {
-                // nosemgrep: rust-integer-overflow
-                let available: usize = widths[col..col + span].iter().sum::<usize>() + span - 1;
+                let available = spanned_width(&widths[col..col + span]);
                 let needed = content.lines().map(str_display_width).max().unwrap_or(0) + 2 * pad;
                 if needed > available {
                     widths[col + span - 1] += needed - available;
@@ -493,6 +490,13 @@ fn span_col_widths(rows: &[Vec<(String, usize, bool)>], n_cols: usize, pad: usiz
     }
 
     widths
+}
+
+// Returns the width of columns laid side by side, including the one-char
+// separators between them.
+fn spanned_width(widths: &[usize]) -> usize {
+    let content: usize = widths.iter().sum();
+    content + widths.len().saturating_sub(1)
 }
 
 // Returns the display width of a string, counting wide chars (emoji, CJK) as 2
@@ -527,6 +531,13 @@ mod test {
     use soroban_rpc::GetTransactionResponse;
 
     use super::*;
+
+    #[test]
+    fn spanned_width_counts_separators() {
+        assert_eq!(spanned_width(&[3, 4, 5]), 14);
+        assert_eq!(spanned_width(&[3]), 3);
+        assert_eq!(spanned_width(&[]), 0);
+    }
 
     #[test]
     fn soroban_tx() {
