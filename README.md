@@ -80,6 +80,15 @@ Use GitHub Action:
 uses: stellar/stellar-cli@v23.0.1
 ```
 
+When pinning the action to a full commit SHA, use the SHA in `uses` and
+set the CLI release version explicitly:
+
+```yaml
+uses: stellar/stellar-cli@<full-commit-sha>
+with:
+  version: '23.0.1'
+```
+
 Run with Docker:
 
 ```sh
