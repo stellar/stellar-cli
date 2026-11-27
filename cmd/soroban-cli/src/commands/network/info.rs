@@ -1,4 +1,5 @@
 use sha2::{Digest, Sha256};
+use soroban_spec_tools::sanitize;
 
 use crate::commands::global;
 use crate::config::network;
@@ -63,18 +64,25 @@ struct Info {
 
 impl Info {
     fn print_text(&self, print: &print::Print) {
+        // Every field other than `id` and `protocol_version` is a free-form
+        // string taken straight from the RPC `getVersionInfo`/`getNetwork`
+        // response, so a hostile peer must not be able to smuggle
+        // terminal-escape sequences through them.
         print.infoln(format!("Network Id: {}", self.id));
-        print.infoln(format!("Version: {}", self.version));
-        print.infoln(format!("Commit Hash: {}", self.commit_hash));
-        print.infoln(format!("Build Timestamp: {}", self.build_timestamp));
+        print.infoln(format!("Version: {}", sanitize(&self.version)));
+        print.infoln(format!("Commit Hash: {}", sanitize(&self.commit_hash)));
+        print.infoln(format!(
+            "Build Timestamp: {}",
+            sanitize(&self.build_timestamp)
+        ));
         print.infoln(format!(
             "Captive Core Version: {}",
-            self.captive_core_version
+            sanitize(&self.captive_core_version)
         ));
         print.infoln(format!("Protocol Version: {}", self.protocol_version));
-        print.infoln(format!("Passphrase: {}", self.passphrase));
+        print.infoln(format!("Passphrase: {}", sanitize(&self.passphrase)));
         if let Some(friendbot_url) = &self.friendbot_url {
-            print.infoln(format!("Friendbot Url: {friendbot_url}"));
+            print.infoln(format!("Friendbot Url: {}", sanitize(friendbot_url)));
         }
     }
 }

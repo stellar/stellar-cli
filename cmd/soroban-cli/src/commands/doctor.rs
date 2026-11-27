@@ -1,6 +1,7 @@
 use clap::Parser;
 use rustc_version::version;
 use semver::Version;
+use soroban_spec_tools::sanitize;
 use std::fmt::Debug;
 use std::process::Command;
 
@@ -105,7 +106,9 @@ async fn print_network(
         redact_url(&network.rpc_url)
     ));
     print.blankln(format!("protocol {}", version_info.protocol_version));
-    print.blankln(format!("rpc {}", version_info.version));
+    // `version` is a free-form string from the RPC response; sanitize it so a
+    // hostile peer can't smuggle terminal-escape sequences into the output.
+    print.blankln(format!("rpc {}", sanitize(&version_info.version)));
 
     Ok(())
 }
