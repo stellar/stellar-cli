@@ -264,16 +264,11 @@ impl Cmd {
         }
 
         // 7. Decode the settlement and build the receipt.
-        let settlement = paid
-            .header(challenge::PAYMENT_RESPONSE_HEADER)
-            .map(|header| Settlement::parse(&header))
-            .transpose()?;
-        if let Some(reason) = settlement.as_ref().and_then(Settlement::failure) {
-            return Err(Error::PaymentRejected {
-                status: paid.status,
-                reason,
-            });
-        }
+        let settlement = paid_settlement(
+            &output,
+            paid.status,
+            paid.header(challenge::PAYMENT_RESPONSE_HEADER).as_deref(),
+        )?;
         let tx_hash = settlement.and_then(|s| s.transaction);
         let explorer_url = tx_hash
             .as_deref()
@@ -322,6 +317,32 @@ impl Cmd {
         output.json_value(&resource_response(&response))?;
         Ok(())
     }
+}
+
+/// Decode the settlement on a successful paid response. A settlement the
+/// facilitator reports as failed is an error. A malformed one only warns: the
+/// payment may still have gone through, so the paid resource is still returned.
+fn paid_settlement(
+    output: &Output,
+    status: u16,
+    header: Option<&str>,
+) -> Result<Option<Settlement>, Error> {
+    let Some(header) = header else {
+        return Ok(None);
+    };
+    let settlement = match Settlement::parse(header) {
+        Ok(settlement) => settlement,
+        Err(e) => {
+            output.print().warnln(format!(
+                "{e}; the payment may have settled, but there's no receipt"
+            ));
+            return Ok(None);
+        }
+    };
+    if let Some(reason) = settlement.failure() {
+        return Err(Error::PaymentRejected { status, reason });
+    }
+    Ok(Some(settlement))
 }
 
 /// Emit the `--build-only` proof: the header value on stdout (text mode) or the
@@ -412,6 +433,43 @@ mod tests {
                 "extra": { "areFeesSponsored": true }
             }]
         })
+    }
+
+    fn encoded(settlement: &Value) -> String {
+        use base64::Engine as _;
+        base64::engine::general_purpose::STANDARD.encode(settlement.to_string())
+    }
+
+    #[test]
+    fn malformed_settlement_still_returns_the_resource() {
+        let output = Output::new(OutputFormat::Text.into(), true);
+
+        assert!(paid_settlement(&output, 200, Some("not base64 json"))
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn failed_settlement_is_rejected() {
+        let output = Output::new(OutputFormat::Text.into(), true);
+        let header = encoded(&json!({"success": false, "errorReason": "insufficient_funds"}));
+
+        let err = paid_settlement(&output, 200, Some(&header)).unwrap_err();
+
+        assert_eq!(err.error_type(), "payment_rejected");
+    }
+
+    #[test]
+    fn settlement_is_decoded() {
+        let output = Output::new(OutputFormat::Text.into(), true);
+        let header = encoded(&json!({"success": true, "transaction": "abc"}));
+
+        let settlement = paid_settlement(&output, 200, Some(&header)).unwrap();
+
+        assert_eq!(
+            settlement.and_then(|s| s.transaction).as_deref(),
+            Some("abc")
+        );
     }
 
     #[test]
