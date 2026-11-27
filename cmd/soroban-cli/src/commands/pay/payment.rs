@@ -26,6 +26,8 @@ const ESTIMATED_LEDGER_CLOSE_SECONDS: u64 = 5;
 /// facilitator settles right away, so a long-lived payment only gives whoever
 /// holds it time to submit it later.
 const MAX_PAYMENT_TIMEOUT_SECONDS: u64 = 300;
+/// How long the signed payment stays valid when the server doesn't say.
+const DEFAULT_PAYMENT_TIMEOUT_SECONDS: u64 = 60;
 
 /// Stellar Asset Contract error raised when a transfer would leave a balance
 /// outside its allowed range (e.g. below zero).
@@ -145,7 +147,12 @@ fn classify_transfer_failure(
 }
 
 /// The server's `maxTimeoutSeconds`, capped at [`MAX_PAYMENT_TIMEOUT_SECONDS`].
+/// A missing or zero value would expire the payment before it's sent, so it
+/// falls back to [`DEFAULT_PAYMENT_TIMEOUT_SECONDS`].
 fn payment_timeout(max_timeout_seconds: u64) -> u64 {
+    if max_timeout_seconds == 0 {
+        return DEFAULT_PAYMENT_TIMEOUT_SECONDS;
+    }
     max_timeout_seconds.min(MAX_PAYMENT_TIMEOUT_SECONDS)
 }
 
@@ -407,6 +414,11 @@ mod tests {
             MAX_PAYMENT_TIMEOUT_SECONDS
         );
         assert_eq!(payment_timeout(u64::MAX), MAX_PAYMENT_TIMEOUT_SECONDS);
+    }
+
+    #[test]
+    fn payment_timeout_defaults_when_the_server_gives_none() {
+        assert_eq!(payment_timeout(0), DEFAULT_PAYMENT_TIMEOUT_SECONDS);
     }
 
     #[test]
