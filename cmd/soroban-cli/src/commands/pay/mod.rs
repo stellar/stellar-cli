@@ -17,10 +17,7 @@ use clap::Parser;
 use serde_json::Value;
 
 use crate::{
-    commands::{
-        global,
-        token::args::{parse_nonneg_i128, OutputFormat},
-    },
+    commands::{global, token::args::OutputFormat},
     config::{self, locator, network, sign_with, UnresolvedMuxedAccount},
     output::Output,
 };
@@ -47,24 +44,23 @@ pub struct Cmd {
     )]
     pub source_account: UnresolvedMuxedAccount,
 
-    /// Maximum amount to pay, in the display units of the asset the server asks
-    /// for (e.g. `1` = 1.0 USDC, which is `10000000` in base units at 7
-    /// decimals). The default allows 1 whole unit of that asset, whatever it's
-    /// worth. Aborts before signing if the challenge asks for more. Set to
-    /// `none` to disable the cap.
+    /// Maximum amount to pay, in the asset's base units (stroops for a Stellar
+    /// Asset Contract), the same units `stellar token` takes. Aborts before
+    /// signing if the challenge asks for more. Set to `none` to disable the cap.
+    /// Without this or `--max-decimal-amount`, the cap is 1 whole unit of the
+    /// requested asset, whatever it's worth.
+    #[arg(long, env = "STELLAR_CHECKOUT_MAX_AMOUNT", value_parser = parse_max_amount)]
+    pub max_amount: Option<MaxAmount>,
+
+    /// Maximum amount to pay, in the asset's decimal units (e.g. `1` = 1.0 USDC,
+    /// which is `10000000` base units at 7 decimals). Aborts before signing if
+    /// the challenge asks for more.
     #[arg(
         long,
-        env = "STELLAR_CHECKOUT_MAX_AMOUNT",
-        default_value = "1",
-        value_parser = parse_max_amount
+        conflicts_with = "max_amount",
+        value_parser = cap::parse_decimal_amount
     )]
-    pub max_amount: MaxAmount,
-
-    /// Maximum amount to pay, in the asset's base units (e.g. `10000000` = 1.0
-    /// USDC at 7 decimals), the same units `stellar token` takes. Aborts before
-    /// signing if the challenge asks for more.
-    #[arg(long, conflicts_with = "max_amount", value_parser = parse_nonneg_i128)]
-    pub raw_max_amount: Option<i128>,
+    pub max_decimal_amount: Option<String>,
 
     /// Build and authorization-sign the payment and print the proof, without
     /// fetching the paid resource.
@@ -219,12 +215,18 @@ impl Cmd {
         let asset = payment::parse_asset(&req.asset)?;
         let amount = req.amount_raw()?;
 
-        // 3. Enforce the spend cap (default 1.0 of the asset) before signing.
-        if let Some(cap) = self.raw_max_amount {
-            cap::enforce_raw(amount, cap)?;
-        } else if let MaxAmount::Limit(_) = self.max_amount {
-            let decimals = payment::read_decimals(&config, asset, quiet, no_cache).await?;
-            self.max_amount.enforce(amount, decimals)?;
+        // 3. Enforce the spend cap before signing.
+        match self.max_amount {
+            Some(MaxAmount::Unlimited) => {}
+            Some(MaxAmount::Limit(cap)) => cap::enforce(amount, cap)?,
+            None => {
+                let decimal_amount = self
+                    .max_decimal_amount
+                    .as_deref()
+                    .unwrap_or(cap::DEFAULT_DECIMAL_AMOUNT);
+                let decimals = payment::read_decimals(&config, asset, quiet, no_cache).await?;
+                cap::enforce(amount, cap::decimal_to_raw(decimal_amount, decimals)?)?;
+            }
         }
 
         // 4. Build + simulate + authorization-sign the transfer into a proof.
@@ -393,8 +395,8 @@ mod tests {
         Cmd {
             url,
             source_account: UnresolvedMuxedAccount::default(),
-            max_amount,
-            raw_max_amount: None,
+            max_amount: Some(max_amount),
+            max_decimal_amount: None,
             build_only: false,
             output: OutputFormat::Text,
             network: network::Args {
@@ -583,18 +585,21 @@ mod tests {
     }
 
     #[test]
-    fn raw_max_amount_conflicts_with_max_amount() {
+    fn max_amounts_are_parsed_in_their_units() {
         let base = ["checkout", "http://localhost/pay", "--source", "alice"];
-        let raw = Cmd::try_parse_from(base.iter().chain(&["--raw-max-amount", "5"])).unwrap();
-        assert_eq!(raw.raw_max_amount, Some(5));
-        assert!(Cmd::try_parse_from(base.iter().chain(&[
-            "--raw-max-amount",
-            "5",
-            "--max-amount",
-            "1"
-        ]))
-        .is_err());
-        assert!(Cmd::try_parse_from(base.iter().chain(&["--raw-max-amount", "-1"])).is_err());
+        let parse = |args: &[&str]| Cmd::try_parse_from(base.iter().chain(args));
+
+        let raw = parse(&["--max-amount", "10000000"]).unwrap();
+        assert_eq!(raw.max_amount, Some(MaxAmount::Limit(10_000_000)));
+        assert_eq!(raw.max_decimal_amount, None);
+
+        let decimal = parse(&["--max-decimal-amount", "1.5"]).unwrap();
+        assert_eq!(decimal.max_amount, None);
+        assert_eq!(decimal.max_decimal_amount.as_deref(), Some("1.5"));
+
+        assert!(parse(&["--max-amount", "1.5"]).is_err());
+        assert!(parse(&["--max-amount", "-1"]).is_err());
+        assert!(parse(&["--max-amount", "5", "--max-decimal-amount", "1"]).is_err());
     }
 
     #[tokio::test]

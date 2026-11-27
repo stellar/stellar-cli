@@ -2519,11 +2519,8 @@ Pay for and fetch an x402-protected resource
 ###### **Options:**
 
 - `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that pays for the resource. Signs and authorizes the on-chain payment, so it must be an identity or key you control
-- `--max-amount <MAX_AMOUNT>` — Maximum amount to pay, in the display units of the asset the server asks for (e.g. `1` = 1.0 USDC, which is `10000000` in base units at 7 decimals). The default allows 1 whole unit of that asset, whatever it's worth. Aborts before signing if the challenge asks for more. Set to `none` to disable the cap
-
-  Default value: `1`
-
-- `--raw-max-amount <RAW_MAX_AMOUNT>` — Maximum amount to pay, in the asset's base units (e.g. `10000000` = 1.0 USDC at 7 decimals), the same units `stellar token` takes. Aborts before signing if the challenge asks for more
+- `--max-amount <MAX_AMOUNT>` — Maximum amount to pay, in the asset's base units (stroops for a Stellar Asset Contract), the same units `stellar token` takes. Aborts before signing if the challenge asks for more. Set to `none` to disable the cap. Without this or `--max-decimal-amount`, the cap is 1 whole unit of the requested asset, whatever it's worth
+- `--max-decimal-amount <MAX_DECIMAL_AMOUNT>` — Maximum amount to pay, in the asset's decimal units (e.g. `1` = 1.0 USDC, which is `10000000` base units at 7 decimals). Aborts before signing if the challenge asks for more
 - `--build-only` — Build and authorization-sign the payment and print the proof, without fetching the paid resource
 - `--output <OUTPUT>` — Format of the output
 

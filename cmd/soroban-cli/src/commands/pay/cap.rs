@@ -1,32 +1,43 @@
-//! The `--max-amount` / `--raw-max-amount` spend caps.
+//! The checkout spend cap.
 //!
-//! `--max-amount` is denominated in the asset's display units (so `1` means 1.0
-//! of the asset, e.g. 1.0 USDC, whatever that asset is worth). It
-//! defaults to `1` so an unconfigured `checkout` refuses to pay more than that,
-//! and can be disabled with `none` / `off` / `unlimited`. `--raw-max-amount` is
-//! the same cap in the asset's base units.
+//! `--max-amount` is in the asset's base units (stroops for a Stellar Asset
+//! Contract), the same units the `stellar token` commands take, and `none` /
+//! `off` / `unlimited` disables it. `--max-decimal-amount` is the same cap in
+//! the asset's decimal units (`1` = 1.0 of the asset). With neither, the cap is
+//! 1 whole unit of the asset, so an unconfigured `checkout` refuses to pay more
+//! than that.
 
 use std::str::FromStr;
 
 use crate::commands::token::args::MAX_DECIMALS;
 
+/// The `--max-decimal-amount` used when no cap is given: 1 whole unit of the asset.
+pub const DEFAULT_DECIMAL_AMOUNT: &str = "1";
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("invalid --max-amount `{0}`: expected a decimal amount or `none` to disable")]
+    #[error(
+        "invalid --max-amount `{0}`: expected an amount in the asset's base units, \
+         or `none` to disable"
+    )]
     Invalid(String),
 
+    #[error("invalid --max-decimal-amount `{0}`: expected a decimal amount")]
+    InvalidDecimal(String),
+
     #[error(
-        "--max-amount `{amount}` has more fractional digits than the asset's {decimals} decimals"
+        "--max-decimal-amount `{amount}` has more fractional digits than the asset's \
+         {decimals} decimals"
     )]
     TooPrecise { amount: String, decimals: u32 },
 
-    #[error("--max-amount `{0}` is too large for this asset")]
+    #[error("--max-decimal-amount `{0}` is too large for this asset")]
     Overflow(String),
 
     #[error(
         "the payment requires {required} but the spend cap is {cap} \
-         (asset's smallest unit).\n\
-         Raise it with `--max-amount <AMOUNT>` / `--raw-max-amount <AMOUNT>`, \
+         (asset's base units).\n\
+         Raise it with `--max-amount <BASE_UNITS>` or `--max-decimal-amount <AMOUNT>`, \
          or disable it with `--max-amount none`."
     )]
     Exceeded { required: i128, cap: i128 },
@@ -41,6 +52,7 @@ impl Error {
     pub fn error_type(&self) -> &'static str {
         match self {
             Error::Invalid(_) => "invalid_max_amount",
+            Error::InvalidDecimal(_) => "invalid_max_decimal_amount",
             Error::TooPrecise { .. } => "max_amount_too_precise",
             Error::Overflow(_) => "max_amount_overflow",
             Error::Exceeded { .. } => "max_amount_exceeded",
@@ -49,16 +61,13 @@ impl Error {
     }
 }
 
-/// The resolved spend cap: either a decimal limit (in the asset's display units)
-/// or no limit at all.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// The `--max-amount` cap: a limit in the asset's base units, or no limit at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MaxAmount {
     /// No cap — pay whatever the challenge asks.
     Unlimited,
-    /// A cap given as a decimal string in the asset's display units (e.g. `1`,
-    /// `0.5`). Converted to the asset's smallest unit at enforcement time, once
-    /// the asset's `decimals` are known.
-    Limit(String),
+    /// The most to pay, in the asset's base units.
+    Limit(i128),
 }
 
 impl FromStr for MaxAmount {
@@ -68,28 +77,27 @@ impl FromStr for MaxAmount {
         let trimmed = s.trim();
         match trimmed.to_ascii_lowercase().as_str() {
             "none" | "off" | "unlimited" => Ok(MaxAmount::Unlimited),
-            _ => {
-                validate_decimal(trimmed)?;
-                Ok(MaxAmount::Limit(trimmed.to_string()))
-            }
+            _ => match trimmed.parse::<i128>() {
+                Ok(amount) if amount >= 0 && trimmed.bytes().all(|b| b.is_ascii_digit()) => {
+                    Ok(MaxAmount::Limit(amount))
+                }
+                _ => Err(Error::Invalid(s.to_string())),
+            },
         }
     }
 }
 
-impl MaxAmount {
-    /// Enforce the cap against a `required` amount (in the asset's smallest unit),
-    /// given the asset's `decimals`. A no-op when the cap is [`MaxAmount::Unlimited`].
-    pub fn enforce(&self, required: i128, decimals: u32) -> Result<(), Error> {
-        let MaxAmount::Limit(amount) = self else {
-            return Ok(());
-        };
-        enforce_raw(required, decimal_to_raw(amount, decimals)?)
-    }
+/// Parse a `--max-decimal-amount` value, checking its shape before the asset's
+/// decimals are known.
+pub fn parse_decimal_amount(s: &str) -> Result<String, Error> {
+    let trimmed = s.trim();
+    validate_decimal(trimmed)?;
+    Ok(trimmed.to_string())
 }
 
-/// Enforce a cap given in the asset's smallest unit against a `required` amount
-/// in the same unit.
-pub fn enforce_raw(required: i128, cap: i128) -> Result<(), Error> {
+/// Enforce a cap in the asset's base units against a `required` amount in the
+/// same units.
+pub fn enforce(required: i128, cap: i128) -> Result<(), Error> {
     if required > cap {
         return Err(Error::Exceeded { required, cap });
     }
@@ -100,7 +108,7 @@ pub fn enforce_raw(required: i128, cap: i128) -> Result<(), Error> {
 /// without needing to know the asset's decimals yet.
 fn validate_decimal(s: &str) -> Result<(), Error> {
     if s.is_empty() {
-        return Err(Error::Invalid(s.to_string()));
+        return Err(Error::InvalidDecimal(s.to_string()));
     }
     let (int_part, frac_part) = match s.split_once('.') {
         Some((i, f)) => (i, f),
@@ -110,10 +118,10 @@ fn validate_decimal(s: &str) -> Result<(), Error> {
     // that are actually present (an empty fractional part from a trailing "." is
     // invalid).
     if int_part.is_empty() || !int_part.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(Error::Invalid(s.to_string()));
+        return Err(Error::InvalidDecimal(s.to_string()));
     }
     if s.contains('.') && (frac_part.is_empty() || !frac_part.bytes().all(|b| b.is_ascii_digit())) {
-        return Err(Error::Invalid(s.to_string()));
+        return Err(Error::InvalidDecimal(s.to_string()));
     }
     Ok(())
 }
@@ -121,7 +129,7 @@ fn validate_decimal(s: &str) -> Result<(), Error> {
 /// Convert a non-negative decimal string in display units to the asset's
 /// smallest unit, scaling by `10^decimals`. Rejects more fractional digits than
 /// the asset supports rather than silently rounding.
-fn decimal_to_raw(s: &str, decimals: u32) -> Result<i128, Error> {
+pub fn decimal_to_raw(s: &str, decimals: u32) -> Result<i128, Error> {
     validate_decimal(s)?;
     if decimals > MAX_DECIMALS {
         return Err(Error::DecimalsTooLarge { decimals });
@@ -165,29 +173,38 @@ mod tests {
     }
 
     #[test]
-    fn decimal_values_parse_to_limit() {
+    fn max_amount_is_in_base_units() {
         assert_eq!(
-            "1".parse::<MaxAmount>().unwrap(),
-            MaxAmount::Limit("1".into())
+            "10000000".parse::<MaxAmount>().unwrap(),
+            MaxAmount::Limit(10_000_000)
         );
-        assert_eq!(
-            "0.5".parse::<MaxAmount>().unwrap(),
-            MaxAmount::Limit("0.5".into())
-        );
+        assert_eq!("0".parse::<MaxAmount>().unwrap(), MaxAmount::Limit(0));
     }
 
     #[test]
-    fn invalid_values_are_rejected() {
-        for bad in ["", "abc", "-1", "1.", ".5", "1.2.3", "1e3"] {
-            assert!(
-                bad.parse::<MaxAmount>().is_err(),
-                "expected `{bad}` to be rejected"
-            );
+    fn invalid_max_amounts_are_rejected() {
+        for bad in ["", "abc", "-1", "+1", "1.5", "1e3"] {
+            let err = bad.parse::<MaxAmount>().unwrap_err();
+            assert_eq!(err.error_type(), "invalid_max_amount", "`{bad}`");
         }
     }
 
     #[test]
-    fn one_dollar_at_seven_decimals_is_ten_million() {
+    fn decimal_amounts_are_parsed() {
+        assert_eq!(parse_decimal_amount("1").unwrap(), "1");
+        assert_eq!(parse_decimal_amount("0.5").unwrap(), "0.5");
+    }
+
+    #[test]
+    fn invalid_decimal_amounts_are_rejected() {
+        for bad in ["", "abc", "-1", "1.", ".5", "1.2.3", "1e3", "none"] {
+            let err = parse_decimal_amount(bad).unwrap_err();
+            assert_eq!(err.error_type(), "invalid_max_decimal_amount", "`{bad}`");
+        }
+    }
+
+    #[test]
+    fn decimal_amounts_scale_to_base_units() {
         assert_eq!(decimal_to_raw("1", 7).unwrap(), 10_000_000);
         assert_eq!(decimal_to_raw("0.5", 7).unwrap(), 5_000_000);
         assert_eq!(decimal_to_raw("1.2345", 7).unwrap(), 12_345_000);
@@ -212,23 +229,9 @@ mod tests {
 
     #[test]
     fn enforce_passes_under_cap_and_fails_over() {
-        let cap: MaxAmount = "1".parse().unwrap();
-        // 1.0 USDC default cap, 7 decimals → 10_000_000 raw.
-        assert!(cap.enforce(10_000_000, 7).is_ok());
-        assert!(cap.enforce(9_999_999, 7).is_ok());
-        let err = cap.enforce(10_000_001, 7).unwrap_err();
+        assert!(enforce(10_000_000, 10_000_000).is_ok());
+        assert!(enforce(9_999_999, 10_000_000).is_ok());
+        let err = enforce(10_000_001, 10_000_000).unwrap_err();
         assert_eq!(err.error_type(), "max_amount_exceeded");
-    }
-
-    #[test]
-    fn raw_cap_is_compared_in_base_units() {
-        assert!(enforce_raw(10_000_000, 10_000_000).is_ok());
-        let err = enforce_raw(10_000_001, 10_000_000).unwrap_err();
-        assert_eq!(err.error_type(), "max_amount_exceeded");
-    }
-
-    #[test]
-    fn unlimited_never_enforces() {
-        assert!(MaxAmount::Unlimited.enforce(i128::MAX, 7).is_ok());
     }
 }

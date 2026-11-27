@@ -162,7 +162,7 @@ async fn payment_over_the_cap_is_refused_before_signing() {
 }
 
 #[tokio::test]
-async fn payment_over_the_raw_cap_is_refused_before_signing() {
+async fn payment_over_the_max_amount_is_refused_before_signing() {
     let sandbox = &TestEnv::new();
     let (asset, pay_to) = setup(sandbox);
 
@@ -174,8 +174,36 @@ async fn payment_over_the_raw_cap_is_refused_before_signing() {
         .new_assert_cmd("checkout")
         .args([
             &server.url("/pay"),
-            "--raw-max-amount",
+            "--max-amount",
             "999999",
+            "--output",
+            "json",
+        ])
+        .assert()
+        .failure()
+        .stdout_as_str();
+    challenge_mock.assert();
+    paid_mock.assert_hits(0);
+
+    let error: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(error["error"]["type"], json!("max_amount_exceeded"));
+}
+
+#[tokio::test]
+async fn payment_over_the_max_decimal_amount_is_refused_before_signing() {
+    let sandbox = &TestEnv::new();
+    let (asset, pay_to) = setup(sandbox);
+
+    let server = MockServer::start();
+    let challenge_mock = mock_challenge(&server, &challenge(&asset, &pay_to, 1_000_000));
+    let paid_mock = mock_paid(&server, b"paid");
+
+    let stdout = sandbox
+        .new_assert_cmd("checkout")
+        .args([
+            &server.url("/pay"),
+            "--max-decimal-amount",
+            "0.0999999",
             "--output",
             "json",
         ])
