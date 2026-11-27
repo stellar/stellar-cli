@@ -1,6 +1,7 @@
 mod auth;
 mod auto_build;
 mod bindings;
+mod checkout;
 mod constructor;
 mod contract;
 mod cookbook;

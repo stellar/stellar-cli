@@ -6,6 +6,7 @@ pub fn unprefixed() -> Vec<&'static str> {
         "ACCOUNT",
         "ARCHIVE_URL",
         "AUTH_MODE",
+        "CHECKOUT_MAX_AMOUNT",
         "CONFIG_HOME",
         "CONTAINER_ENGINE",
         "CONTRACT_ID",
@@ -32,6 +33,7 @@ pub fn unprefixed() -> Vec<&'static str> {
 /// Unprefixed names of env vars that are safe to display in plain text.
 const VISIBLE: &[&str] = &[
     "AUTH_MODE",
+    "CHECKOUT_MAX_AMOUNT",
     "CONFIG_HOME",
     "CONTAINER_ENGINE",
     "CONTRACT_ID",
