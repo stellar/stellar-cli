@@ -47,10 +47,11 @@ pub struct Cmd {
     )]
     pub source_account: UnresolvedMuxedAccount,
 
-    /// Maximum amount to pay, in the asset's display units (e.g. `1` = 1.0 USDC,
-    /// roughly $1, which is `10000000` in base units at 7 decimals). Aborts
-    /// before signing if the challenge asks for more. Set to `none` to disable
-    /// the cap.
+    /// Maximum amount to pay, in the display units of the asset the server asks
+    /// for (e.g. `1` = 1.0 USDC, which is `10000000` in base units at 7
+    /// decimals). The default allows 1 whole unit of that asset, whatever it's
+    /// worth. Aborts before signing if the challenge asks for more. Set to
+    /// `none` to disable the cap.
     #[arg(
         long,
         env = "STELLAR_CHECKOUT_MAX_AMOUNT",
@@ -218,7 +219,7 @@ impl Cmd {
         let asset = payment::parse_asset(&req.asset)?;
         let amount = req.amount_raw()?;
 
-        // 3. Enforce the spend cap (default 1.0 of the asset ≈ $1) before signing.
+        // 3. Enforce the spend cap (default 1.0 of the asset) before signing.
         if let Some(cap) = self.raw_max_amount {
             cap::enforce_raw(amount, cap)?;
         } else if let MaxAmount::Limit(_) = self.max_amount {

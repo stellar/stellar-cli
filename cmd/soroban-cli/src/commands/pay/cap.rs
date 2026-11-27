@@ -1,7 +1,7 @@
 //! The `--max-amount` / `--raw-max-amount` spend caps.
 //!
 //! `--max-amount` is denominated in the asset's display units (so `1` means 1.0
-//! of the asset — roughly $1 for a 7-decimal USD stablecoin like USDC). It
+//! of the asset, e.g. 1.0 USDC, whatever that asset is worth). It
 //! defaults to `1` so an unconfigured `checkout` refuses to pay more than that,
 //! and can be disabled with `none` / `off` / `unlimited`. `--raw-max-amount` is
 //! the same cap in the asset's base units.

@@ -2519,7 +2519,7 @@ Pay for and fetch an x402-protected resource
 ###### **Options:**
 
 - `--source-account <SOURCE_ACCOUNT>` [alias: `source`] — Account that pays for the resource. Signs and authorizes the on-chain payment, so it must be an identity or key you control
-- `--max-amount <MAX_AMOUNT>` — Maximum amount to pay, in the asset's display units (e.g. `1` = 1.0 USDC, roughly $1, which is `10000000` in base units at 7 decimals). Aborts before signing if the challenge asks for more. Set to `none` to disable the cap
+- `--max-amount <MAX_AMOUNT>` — Maximum amount to pay, in the display units of the asset the server asks for (e.g. `1` = 1.0 USDC, which is `10000000` in base units at 7 decimals). The default allows 1 whole unit of that asset, whatever it's worth. Aborts before signing if the challenge asks for more. Set to `none` to disable the cap
 
   Default value: `1`
 
