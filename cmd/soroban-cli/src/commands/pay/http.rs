@@ -40,6 +40,8 @@ impl Error {
 
 /// A fetched HTTP response, with the body read into memory.
 pub struct Response {
+    /// The URL that produced this response, after following any redirects.
+    pub url: String,
     pub status: u16,
     headers: HeaderMap,
     pub body: Vec<u8>,
@@ -89,6 +91,7 @@ pub async fn get(url: &str, payment_signature: Option<&str>) -> Result<Response,
         url: url.to_string(),
         source,
     })?;
+    let final_url = response.url().to_string();
     let status = response.status().as_u16();
     let headers = response.headers().clone();
     let body = response
@@ -100,6 +103,7 @@ pub async fn get(url: &str, payment_signature: Option<&str>) -> Result<Response,
         })?
         .to_vec();
     Ok(Response {
+        url: final_url,
         status,
         headers,
         body,
@@ -175,5 +179,26 @@ mod tests {
 
         paid.assert_async().await;
         assert_eq!(response.body, b"ok");
+    }
+
+    #[tokio::test]
+    async fn response_reports_the_url_it_came_from_after_redirects() {
+        let mut origin = mockito::Server::new_async().await;
+        let mut other = mockito::Server::new_async().await;
+        origin
+            .mock("GET", "/pay")
+            .with_status(301)
+            .with_header("location", &format!("{}/pay", other.url()))
+            .create_async()
+            .await;
+        other
+            .mock("GET", "/pay")
+            .with_status(402)
+            .create_async()
+            .await;
+
+        let response = get(&format!("{}/pay", origin.url()), None).await.unwrap();
+
+        assert_eq!(response.url, format!("{}/pay", other.url()));
     }
 }

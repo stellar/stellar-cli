@@ -247,9 +247,10 @@ impl Cmd {
             return emit_proof(&output, payment_signature, payload);
         }
 
-        // 6. Replay the request with the proof to settle and fetch the resource.
+        // 6. Replay the request with the proof to settle and fetch the resource,
+        //    sending it to the URL that asked for payment, after any redirects.
         output.readable(|print| print.globeln("Submitting payment…"));
-        let paid = http::get(&self.url, Some(&payment_signature)).await?;
+        let paid = http::get(&initial.url, Some(&payment_signature)).await?;
         if !(200..300).contains(&paid.status) {
             let reason = challenge::rejection_reason(
                 paid.header(challenge::PAYMENT_RESPONSE_HEADER).as_deref(),
