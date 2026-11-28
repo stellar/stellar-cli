@@ -11,6 +11,7 @@ pub const CONSTRUCTOR: &Wasm = &Wasm::Custom("test-wasms", "test_constructor");
 pub const CUSTOM_TYPES: &Wasm = &Wasm::Custom("test-wasms", "test_custom_types");
 pub const CUSTOM_ACCOUNT: &Wasm = &Wasm::Custom("test-wasms", "test_custom_account");
 pub const SWAP: &Wasm = &Wasm::Custom("test-wasms", "test_swap");
+pub const ERROR_CALLER: &Wasm = &Wasm::Custom("test-wasms", "test_error_caller");
 
 pub async fn invoke(sandbox: &TestEnv, id: &str, func: &str, data: &str) -> String {
     sandbox
@@ -56,6 +57,10 @@ pub async fn deploy_swap(sandbox: &TestEnv) -> String {
     deploy_contract(sandbox, SWAP, DeployOptions::default()).await
 }
 
+pub async fn deploy_error_caller(sandbox: &TestEnv) -> String {
+    deploy_contract(sandbox, ERROR_CALLER, DeployOptions::default()).await
+}
+
 pub async fn deploy_custom_account(sandbox: &TestEnv) -> String {
     deploy_contract(sandbox, CUSTOM_ACCOUNT, DeployOptions::default()).await
 }
@@ -92,7 +97,19 @@ pub async fn deploy_contract(
     cmd.salt = salt;
 
     let config = sandbox.clone_config(deployer.as_deref().unwrap_or("test"));
-    let res = cmd.execute(&config, false, false).await.unwrap();
+    let res = match cmd.execute(&config, false, false).await {
+        // Parallel tests can upload the same WASM between simulation and
+        // submission. Retry after this state-change race so the second upload
+        // observes the code that the competing transaction installed.
+        Err(commands::contract::deploy::wasm::Error::Install(
+            commands::contract::upload::Error::Rpc(
+                soroban_rpc::Error::TransactionSubmissionFailed(message),
+            ),
+        )) if message.contains("ResourceLimitExceeded") => {
+            cmd.execute(&config, false, false).await.unwrap()
+        }
+        result => result.unwrap(),
+    };
 
     match kind {
         DeployKind::Normal => (),
