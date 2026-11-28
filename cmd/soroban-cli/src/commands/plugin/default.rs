@@ -33,7 +33,7 @@ pub fn run() -> Result<(), Error> {
 
 const MAX_HEX_LENGTH: usize = 10;
 
-fn find_bin(name: &str) -> Result<PathBuf, which::Error> {
+pub fn find_bin(name: &str) -> Result<PathBuf, which::Error> {
     if let Ok(path) = which(format!("stellar-{name}")) {
         Ok(path)
     } else {
