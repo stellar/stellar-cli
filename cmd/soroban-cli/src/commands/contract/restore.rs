@@ -69,6 +69,8 @@ impl Pwd for Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    SequenceNumberOverflow(#[from] crate::utils::SequenceNumberOverflow),
     #[error("parsing key {key}: {error}")]
     CannotParseKey {
         key: String,
@@ -181,7 +183,7 @@ impl Cmd {
         let tx = Box::new(Transaction {
             source_account,
             fee: config.get_inclusion_fee()?,
-            seq_num: SequenceNumber(sequence + 1),
+            seq_num: SequenceNumber(crate::utils::next_sequence_number(sequence)?),
             cond: Preconditions::None,
             memo: Memo::None,
             operations: vec![Operation {

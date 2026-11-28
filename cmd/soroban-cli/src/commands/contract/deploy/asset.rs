@@ -29,6 +29,8 @@ use crate::utils::XDR_DEPTH_LIMIT;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    SequenceNumberOverflow(#[from] crate::utils::SequenceNumberOverflow),
     #[error("error parsing int: {0}")]
     ParseIntError(#[from] ParseIntError),
 
@@ -176,7 +178,7 @@ impl Cmd {
         let tx = build_wrap_token_tx(
             asset,
             &contract_id,
-            sequence + 1,
+            crate::utils::next_sequence_number(sequence)?,
             config.get_inclusion_fee()?,
             network_passphrase,
             source_account,
